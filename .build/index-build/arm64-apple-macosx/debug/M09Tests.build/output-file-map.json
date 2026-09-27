@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M09Tests.build/master.swiftdeps"
+  },
+  "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/Modules/09-Concurrency-For-LLD/Tests/M09Tests.swift": {
+    "dependencies": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M09Tests.build/M09Tests.d",
+    "object": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M09Tests.build/M09Tests.swift.o",
+    "swiftmodule": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M09Tests.build/M09Tests~partial.swiftmodule",
+    "swift-dependencies": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M09Tests.build/M09Tests.swiftdeps",
+    "diagnostics": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M09Tests.build/M09Tests.dia"
+  }
+}

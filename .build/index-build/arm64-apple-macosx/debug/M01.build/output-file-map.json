@@ -1,0 +1,19 @@
+{
+  "": {
+    "swift-dependencies": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M01.build/master.swiftdeps"
+  },
+  "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/Modules/01-OOP-Fundamentals/Code/Examples.swift": {
+    "dependencies": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M01.build/Examples.d",
+    "object": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M01.build/Examples.swift.o",
+    "swiftmodule": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M01.build/Examples~partial.swiftmodule",
+    "swift-dependencies": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M01.build/Examples.swiftdeps",
+    "diagnostics": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M01.build/Examples.dia"
+  },
+  "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/Modules/01-OOP-Fundamentals/Code/Exercises.swift": {
+    "dependencies": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M01.build/Exercises.d",
+    "object": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M01.build/Exercises.swift.o",
+    "swiftmodule": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M01.build/Exercises~partial.swiftmodule",
+    "swift-dependencies": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M01.build/Exercises.swiftdeps",
+    "diagnostics": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M01.build/Exercises.dia"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M11Tests.build/master.swiftdeps"
+  },
+  "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/Modules/11-Easy-Problems/Tests/M11Tests.swift": {
+    "dependencies": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M11Tests.build/M11Tests.d",
+    "object": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M11Tests.build/M11Tests.swift.o",
+    "swiftmodule": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M11Tests.build/M11Tests~partial.swiftmodule",
+    "swift-dependencies": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M11Tests.build/M11Tests.swiftdeps",
+    "diagnostics": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M11Tests.build/M11Tests.dia"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M12.build/master.swiftdeps"
+  },
+  "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/Modules/12-Medium-Problems/Code/Exercises.swift": {
+    "dependencies": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M12.build/Exercises.d",
+    "object": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M12.build/Exercises.swift.o",
+    "swiftmodule": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M12.build/Exercises~partial.swiftmodule",
+    "swift-dependencies": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M12.build/Exercises.swiftdeps",
+    "diagnostics": "/Users/utkarshraj/Documents/Learning/LLD_LowLevelDesign/.build/index-build/arm64-apple-macosx/debug/M12.build/Exercises.dia"
+  }
+}
