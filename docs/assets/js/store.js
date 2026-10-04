@@ -34,7 +34,17 @@ export const state = {
   prefs: { ...DEFAULT_PREFS },
   extraResources: [], // user-added global resources
   hiddenExtras: [],
+  // Everything the user adds on top of the generated curriculum.
+  custom: { modules: [], sections: [], items: [] },
 };
+
+const emptyCustom = () => ({ modules: [], sections: [], items: [] });
+const normCustom = (c) => ({
+  modules: Array.isArray(c?.modules) ? c.modules : [],
+  sections: Array.isArray(c?.sections) ? c.sections : [],
+  items: Array.isArray(c?.items) ? c.items : [],
+});
+export const newId = (p) => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
 /* ----------------------------------------------------------- events */
 const listeners = new Set();
@@ -59,6 +69,7 @@ export function persist({ remote = true } = {}) {
     localStorage.setItem(LS_STATE, JSON.stringify({
       v: state.v, updatedAt: state.updatedAt, items: state.items,
       extraResources: state.extraResources, hiddenExtras: state.hiddenExtras,
+      custom: state.custom,
     }));
   } catch (e) {
     console.warn('localStorage write failed', e);
@@ -77,6 +88,7 @@ export function loadLocal() {
       state.updatedAt = raw.updatedAt || 0;
       state.extraResources = raw.extraResources || [];
       state.hiddenExtras = raw.hiddenExtras || [];
+      state.custom = normCustom(raw.custom);
     }
   } catch { /* corrupt payload — start clean */ }
   try {
@@ -92,10 +104,13 @@ export function hydrate(remote) {
   state.updatedAt = remote.updatedAt || Date.now();
   state.extraResources = remote.extraResources || [];
   state.hiddenExtras = remote.hiddenExtras || [];
+  state.custom = normCustom(remote.custom);
   if (remote.prefs) state.prefs = { ...DEFAULT_PREFS, ...remote.prefs };
+  if (content.loaded) rebuildIndex();
   localStorage.setItem(LS_STATE, JSON.stringify({
     v: 1, updatedAt: state.updatedAt, items: state.items,
     extraResources: state.extraResources, hiddenExtras: state.hiddenExtras,
+    custom: state.custom,
   }));
   localStorage.setItem(LS_PREFS, JSON.stringify(state.prefs));
   emit({ bulk: true });
@@ -109,6 +124,7 @@ export function exportState() {
     prefs: state.prefs,
     extraResources: state.extraResources,
     hiddenExtras: state.hiddenExtras,
+    custom: state.custom,
   };
 }
 
@@ -116,29 +132,120 @@ export function exportState() {
 export async function loadContent() {
   const res = await fetch('data/content.json', { cache: 'no-cache' });
   if (!res.ok) throw new Error(`content.json ${res.status}`);
-  const data = await res.json();
-  content.data = data;
-  content.modules = data.modules;
+  content.data = await res.json();
+  content.loaded = true;
+  rebuildIndex();
+  return content.data;
+}
+
+export const CUSTOM_PHASE = 'pcustom';
+
+/** Fold the user's own modules, sections and topics into the generated set. */
+export function rebuildIndex() {
+  const base = content.data;
+  const mods = base.modules.map((m) => ({
+    ...m,
+    sections: m.sections.map((sec) => ({ ...sec, items: [...sec.items] })),
+  }));
+  const byId = new Map(mods.map((m) => [m.id, m]));
+
+  for (const cm of state.custom.modules) {
+    const m = { ...cm, custom: true, phaseId: CUSTOM_PHASE, sections: [] };
+    mods.push(m);
+    byId.set(m.id, m);
+  }
+  for (const cs of state.custom.sections) {
+    const m = byId.get(cs.moduleId);
+    if (m) m.sections.push({ ...cs, custom: true, items: [] });
+  }
+  for (const ci of state.custom.items) {
+    const m = byId.get(ci.moduleId);
+    const sec = m?.sections.find((x) => x.id === ci.sectionId);
+    if (sec) sec.items.push({ ...ci, custom: true, trackable: true, resources: ci.resources || [] });
+  }
+
+  content.modules = mods;
+  content.moduleById = new Map();
+  content.itemById = new Map();
+  content.itemModule = new Map();
+  content.itemSection = new Map();
+  content.allItems = [];
 
   const tags = new Set();
-  for (const m of data.modules) {
+  for (const m of mods) {
     content.moduleById.set(m.id, m);
-    for (const s of m.sections) {
-      for (const it of s.items) {
+    m.totals = {
+      items: m.sections.reduce((a, x) => a + x.items.length, 0),
+      trackable: m.sections.reduce((a, x) => a + x.items.filter((i) => i.trackable).length, 0),
+    };
+    for (const sec of m.sections) {
+      for (const it of sec.items) {
         content.itemById.set(it.id, it);
         content.itemModule.set(it.id, m);
-        content.itemSection.set(it.id, s);
+        content.itemSection.set(it.id, sec);
         content.allItems.push(it);
-        it.tags.forEach((t) => tags.add(t));
+        (it.tags || []).forEach((t) => tags.add(t));
       }
     }
   }
   content.builtinTags = [...tags].sort((a, b) => a.localeCompare(b));
-  content.loaded = true;
-  return data;
 }
 
+/* --------------------------------------------- user modules and topics */
+export function addCustomModule({ title, difficulty = null }) {
+  const n = state.custom.modules.length + 1;
+  const m = { id: newId('cm'), num: `U${n}`, title: title.trim() || `My module ${n}`, difficulty };
+  state.custom.modules.push(m);
+  state.custom.sections.push({ id: newId('cs'), moduleId: m.id, title: 'Topics', kind: 'concept', source: 'mine' });
+  rebuildIndex(); persist(); emit({ bulk: true });
+  return m;
+}
+
+export function addCustomSection({ moduleId, title, kind = 'concept' }) {
+  const sec = { id: newId('cs'), moduleId, title: title.trim() || 'New section', kind, source: 'mine' };
+  state.custom.sections.push(sec);
+  rebuildIndex(); persist(); emit({ bulk: true });
+  return sec;
+}
+
+export function addCustomItem({ moduleId, sectionId, title, body = '', kind = 'concept', group = null }) {
+  const it = {
+    id: newId('ci'), moduleId, sectionId, title: title.trim() || 'New topic',
+    body, kind, group, difficulty: null, tags: [], resources: [],
+  };
+  state.custom.items.push(it);
+  rebuildIndex(); persist(); emit({ bulk: true });
+  return it;
+}
+
+export function updateCustom(kind, id, patch) {
+  const list = state.custom[kind];
+  const row = list.find((x) => x.id === id);
+  if (!row) return;
+  Object.assign(row, patch);
+  rebuildIndex(); persist(); emit({ bulk: true });
+}
+
+/** Remove a user-made module, section or topic, plus everything under it. */
+export function removeCustom(kind, id) {
+  if (kind === 'modules') {
+    state.custom.modules = state.custom.modules.filter((x) => x.id !== id);
+    state.custom.sections = state.custom.sections.filter((x) => x.moduleId !== id);
+    state.custom.items = state.custom.items.filter((x) => x.moduleId !== id);
+  } else if (kind === 'sections') {
+    state.custom.sections = state.custom.sections.filter((x) => x.id !== id);
+    state.custom.items = state.custom.items.filter((x) => x.sectionId !== id);
+  } else {
+    state.custom.items = state.custom.items.filter((x) => x.id !== id);
+    delete state.items[id];
+  }
+  rebuildIndex(); persist(); emit({ bulk: true });
+}
+
+export const isCustomItem = (id) => state.custom.items.some((x) => x.id === id);
+
 export async function loadBodies(moduleId) {
+  if (moduleId.startsWith('cm-')) return {};
   if (content.bodies.has(moduleId)) return content.bodies.get(moduleId);
   const res = await fetch(`data/modules/${moduleId}.json`, { cache: 'no-cache' });
   if (!res.ok) throw new Error(`${moduleId}.json ${res.status}`);
@@ -148,6 +255,8 @@ export async function loadBodies(moduleId) {
 }
 
 export function bodyOf(itemId) {
+  const own = state.custom.items.find((x) => x.id === itemId);
+  if (own) return own.body || '';
   const m = content.itemModule.get(itemId);
   if (!m) return null;
   const b = content.bodies.get(m.id);
@@ -393,6 +502,8 @@ export function resetEverything(moduleId = null) {
     state.items = {};
     state.extraResources = [];
     state.hiddenExtras = [];
+    state.custom = emptyCustom();
+    rebuildIndex();
   } else {
     const mod = content.moduleById.get(moduleId);
     for (const s of mod.sections) for (const i of s.items) delete state.items[i.id];

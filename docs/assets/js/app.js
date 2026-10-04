@@ -6,7 +6,8 @@ import {
   addResource, updateResource, removeResource,
   addGlobalResource, updateGlobalResource, removeGlobalResource, globalResources,
   resourcesOf, resetProgress, resetEverything, exportState, hydrate,
-  moduleProgress, sectionProgress, overallProgress, isDone, isFav, notesOf,
+  moduleProgress, sectionProgress, isDone,
+  addCustomModule, addCustomSection, addCustomItem, updateCustom, removeCustom,
 } from './store.js';
 import * as G from './gist.js';
 import {
@@ -15,10 +16,10 @@ import {
   renderSidebarProgress, renderSidebarModules, renderFilterBar, THEMES,
 } from './views.js';
 import { invalidateDiagrams } from './md.js';
-import { $, $$, esc, pct, debounce, toast, modal, confirmModal, barHtml, timeAgo, safeUrl } from './util.js';
+import { $, $$, esc, pct, debounce, toast, modal, confirmModal, barHtml, safeUrl } from './util.js';
 
 /* ------------------------------------------------------------- route */
-let route = { name: 'dashboard', moduleId: null, itemId: null };
+let route = { name: 'dashboard', moduleId: null, sectionId: null, itemId: null };
 
 function parseHash() {
   const raw = location.hash.replace(/^#\/?/, '');
@@ -26,15 +27,33 @@ function parseHash() {
   const seg = pathPart.split('/').filter(Boolean).map(decodeURIComponent);
   const query = new URLSearchParams(queryPart || '');
 
-  if (seg[0] === 'm' && seg[1]) return { name: 'module', moduleId: seg[1], itemId: seg[2] || null, query };
+  if (seg[0] === 'm' && seg[1]) {
+    const mod = content.moduleById.get(seg[1]);
+    // `#/m/<mod>/<section>/<item>`, with `#/m/<mod>/<item>` still understood.
+    const isSection = mod && seg[2] && mod.sections.some((s) => s.id === seg[2]);
+    return {
+      name: 'module',
+      moduleId: seg[1],
+      sectionId: isSection ? seg[2] : null,
+      itemId: isSection ? (seg[3] || null) : (seg[2] || null),
+      query,
+    };
+  }
   if (seg[0] === 'browse') return { name: 'browse', query };
   if (seg[0] === 'resources') return { name: 'resources', query };
   if (seg[0] === 'settings') return { name: 'settings', query };
   return { name: 'dashboard', query };
 }
 
+/** An item deep link without its section still has to land in that section. */
+function resolveRoute(r) {
+  if (r.name !== 'module' || !r.itemId || r.sectionId) return r;
+  const sec = content.itemSection.get(r.itemId);
+  return sec ? { ...r, sectionId: sec.id } : r;
+}
+
 function render() {
-  route = parseHash();
+  route = resolveRoute(parseHash());
   const view = $('#view');
 
   if (route.name === 'browse') {
@@ -50,7 +69,9 @@ function render() {
   let html = '';
   if (route.name === 'module') {
     const mod = content.moduleById.get(route.moduleId);
-    html = mod ? viewModule(mod, route.itemId) : '<div class="empty-state"><div class="big">🤷</div><p>Unknown module.</p></div>';
+    html = mod
+      ? viewModule(mod, route.sectionId, route.itemId)
+      : '<div class="empty-state"><div class="big">🤷</div><p>Unknown module.</p></div>';
   } else if (route.name === 'browse') html = viewBrowse();
   else if (route.name === 'resources') html = viewResources();
   else if (route.name === 'settings') html = viewSettings();
@@ -85,33 +106,47 @@ function updateProgressUI() {
 
   const mp = moduleProgress(mod);
   const head = $('.page-head .bar-row');
-  if (head) head.innerHTML = `${barHtml(pct(mp.done, mp.total), pct(mp.done, mp.total) === 100 ? 'ok' : '')}
-    <span class="pct">${mp.done}/${mp.total} · ${pct(mp.done, mp.total)}%</span>`;
+  if (head) {
+    head.innerHTML = `${barHtml(pct(mp.done, mp.total), pct(mp.done, mp.total) === 100 ? 'ok' : '')}
+      <span class="pct">${mp.done}/${mp.total} · ${pct(mp.done, mp.total)}%</span>`;
+  }
 
-  for (const sec of mod.sections) {
-    const bar = $(`.sec-block[data-section="${CSS.escape(sec.id)}"] .sec-bar`);
-    if (!bar) continue;
-    const sp = sectionProgress(sec);
-    const mini = $('.mini', bar);
-    if (mini && sp.total) {
+  const open = $('.sec-block.open-section');
+  if (open) {
+    const sec = mod.sections.find((s) => s.id === open.dataset.section);
+    const sp = sec ? sectionProgress(sec) : null;
+    const mini = $('.mini', open);
+    if (mini && sp && sp.total) {
       mini.innerHTML = barHtml(pct(sp.done, sp.total), sp.done === sp.total ? 'ok' : 'thin');
       mini.nextElementSibling.textContent = `${sp.done}/${sp.total}`;
     }
   }
+
+  // the sticky rail carries its own per-section counters
+  $$('.sec-rail .rail-tab[href]').forEach((tab) => {
+    const id = tab.getAttribute('href').split('/').pop();
+    const sec = mod.sections.find((s) => s.id === id);
+    if (!sec) return;
+    const sp = sectionProgress(sec);
+    const meta = $('.rt-meta', tab);
+    const bar = $('.rt-bar i', tab);
+    if (meta && sp.total) meta.textContent = `${sp.done}/${sp.total}`;
+    if (bar) bar.style.width = `${pct(sp.done, sp.total)}%`;
+  });
 }
 
 function patchCard(id) {
   const card = $(`.item[data-id="${CSS.escape(id)}"]`);
   if (!card) return;
   const item = content.itemById.get(id);
+  if (!item) return;
   const wasOpen = card.classList.contains('open');
   const bodyEl = card.querySelector('.item-body');
   const keptBody = bodyEl && bodyEl.dataset.filled === '1' ? bodyEl : null;
 
   const tmp = document.createElement('div');
   tmp.innerHTML = itemCard(item, { showModule: card.dataset.showmod === '1', open: wasOpen });
-  const fresh = tmp.firstElementChild;
-  card.querySelector('.item-head').replaceWith(fresh.querySelector('.item-head'));
+  card.querySelector('.item-head').replaceWith(tmp.firstElementChild.querySelector('.item-head'));
   card.classList.toggle('done', isDone(id));
   if (keptBody) { keptBody.hidden = !wasOpen; refreshItemBodyBlocks(card); }
 }
@@ -126,6 +161,18 @@ async function openCard(card, force = null) {
 }
 
 /* ----------------------------------------------------------- modals */
+function fieldHtml(f) {
+  if (f.type === 'select') {
+    return `<select id="f-${f.name}" name="${f.name}">${f.options.map((o) =>
+      `<option value="${esc(o[0])}" ${o[0] === f.value ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select>`;
+  }
+  if (f.type === 'textarea') {
+    return `<textarea id="f-${f.name}" name="${f.name}" rows="${f.rows || 8}" placeholder="${esc(f.placeholder || '')}">${esc(f.value || '')}</textarea>`;
+  }
+  return `<input id="f-${f.name}" name="${f.name}" type="${f.type || 'text'}" value="${esc(f.value || '')}"
+    placeholder="${esc(f.placeholder || '')}" ${f.required ? 'required' : ''} />`;
+}
+
 function promptModal({ title, hint = '', fields, submitLabel = 'Save', onSubmit }) {
   modal({
     render: () => `
@@ -134,10 +181,7 @@ function promptModal({ title, hint = '', fields, submitLabel = 'Save', onSubmit 
       <form>
         ${fields.map((f) => `<div class="field">
           <label for="f-${f.name}">${esc(f.label)}</label>
-          ${f.type === 'select'
-            ? `<select id="f-${f.name}" name="${f.name}">${f.options.map((o) =>
-                `<option value="${esc(o[0])}" ${o[0] === f.value ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select>`
-            : `<input id="f-${f.name}" name="${f.name}" type="${f.type || 'text'}" value="${esc(f.value || '')}" placeholder="${esc(f.placeholder || '')}" ${f.required ? 'required' : ''} />`}
+          ${fieldHtml(f)}
         </div>`).join('')}
         <div class="modal-actions">
           <button type="button" class="btn" data-x="cancel">Cancel</button>
@@ -170,6 +214,25 @@ function resourceModal({ title, value = {}, onSubmit }) {
       if (!safeUrl(d.url)) { toast('That URL is not a valid http(s) link', 'err'); return; }
       onSubmit(d);
     },
+  });
+}
+
+const KIND_OPTIONS = [
+  ['concept', '◆ Concept'], ['theory', '▤ Theory'], ['problem', '◈ Problem'],
+  ['exercise', '✎ Exercise'], ['project', '★ Project'], ['note', '· Note'],
+];
+
+function topicModal({ title, value = {}, submitLabel, onSubmit }) {
+  promptModal({
+    title,
+    hint: 'The body is markdown — headings, lists, tables, <code>```swift</code> code fences and <code>```mermaid</code> diagrams all render.',
+    submitLabel,
+    fields: [
+      { name: 'title', label: 'Title', value: value.title || '', placeholder: 'e.g. Protocol witness tables', required: true },
+      { name: 'kind', label: 'Kind', type: 'select', value: value.kind || 'concept', options: KIND_OPTIONS },
+      { name: 'body', label: 'Body (markdown)', type: 'textarea', value: value.body || '', placeholder: 'What this topic is, and how to think about it…' },
+    ],
+    onSubmit,
   });
 }
 
@@ -212,7 +275,7 @@ function themeModal() {
 function confirmResetAll() {
   confirmModal({
     title: 'Reset all progress?',
-    body: 'Every tick across all 16 modules is cleared. <b>Notes, tags, favourites and links are kept.</b> This cannot be undone.',
+    body: 'Every tick is cleared. <b>Notes, tags, favourites, links and your own modules are kept.</b> This cannot be undone.',
     confirmLabel: 'Reset progress',
     danger: true,
     onConfirm: () => { resetProgress(null); toast('All progress reset — notes kept', 'ok'); },
@@ -233,7 +296,7 @@ function confirmResetModule(modId) {
 function confirmEraseAll() {
   confirmModal({
     title: 'Erase everything?',
-    body: 'Deletes progress <b>and</b> every note, tag, favourite and custom link. If you are connected to a Gist, the empty state is pushed there too.',
+    body: 'Deletes progress <b>and</b> every note, tag, favourite, custom link and module you added. If you are connected to a Gist, the empty state is pushed there too.',
     confirmLabel: 'Erase everything',
     danger: true,
     onConfirm: () => { resetEverything(null); toast('All local data erased', 'ok'); },
@@ -255,14 +318,14 @@ function doImport() {
   input.type = 'file';
   input.accept = 'application/json,.json';
   input.onchange = async () => {
-    const file = input.files?.[0];
+    const file = input.files && input.files[0];
     if (!file) return;
     try {
       const data = JSON.parse(await file.text());
       if (!data || typeof data !== 'object' || !data.items) throw new Error('not a dashboard backup');
       confirmModal({
         title: 'Replace current state?',
-        body: 'The imported file replaces your current progress, notes, tags and links in this browser.',
+        body: 'The imported file replaces your current progress, notes, tags, links and custom modules in this browser.',
         confirmLabel: 'Import',
         danger: true,
         onConfirm: () => { hydrate(data); persist(); applyTheme(); render(); toast('Backup imported', 'ok'); },
@@ -281,12 +344,12 @@ function renderSyncPill() {
     chip.dataset.state = G.gh.status;
     chip.title = G.gh.message;
     $('.sync-name', chip).textContent =
-      G.gh.status === 'synced' ? `@${G.gh.user?.login || 'synced'}`
+      G.gh.status === 'synced' ? `@${(G.gh.user && G.gh.user.login) || 'synced'}`
         : G.gh.status === 'syncing' ? 'Syncing'
           : G.gh.status === 'error' ? 'Error'
             : 'Local';
     const slot = $('.sync-ic', chip);
-    const url = G.gh.user?.avatar;
+    const url = G.gh.user && G.gh.user.avatar;
     const img = slot.querySelector('img');
     if (url && !img) {
       const el = document.createElement('img');
@@ -298,7 +361,7 @@ function renderSyncPill() {
 
   const pill = $('#syncPill');
   pill.dataset.state = G.gh.status;
-  const avatar = G.gh.user?.avatar;
+  const avatar = G.gh.user && G.gh.user.avatar;
   let dot = $('.dot', pill);
   if (avatar && dot.tagName !== 'IMG') {
     const img = document.createElement('img');
@@ -315,7 +378,7 @@ function renderSyncPill() {
   if (avatar) dot.src = avatar;
 
   $('.sync-text', pill).textContent =
-    G.gh.status === 'synced' ? `@${G.gh.user?.login || 'synced'}`
+    G.gh.status === 'synced' ? `@${(G.gh.user && G.gh.user.login) || 'synced'}`
       : G.gh.status === 'syncing' ? 'Syncing…'
         : G.gh.status === 'error' ? 'Sync error'
           : 'Local only';
@@ -343,71 +406,94 @@ function itemIdOf(el) {
   return card ? card.dataset.id : null;
 }
 
+function handleItemAction(act, el, e, id) {
+  if (act === 'done') {
+    e.preventDefault(); e.stopPropagation();
+    const item = content.itemById.get(id);
+    if (item && item.trackable) toggleDone(id);
+    return true;
+  }
+  if (act === 'fav') { e.preventDefault(); e.stopPropagation(); toggleFav(id); return true; }
+  if (act === 'collapse') {
+    e.preventDefault(); e.stopPropagation();
+    const card = el.closest('.item');
+    openCard(card, false);
+    card.scrollIntoView({ block: 'nearest' });
+    return true;
+  }
+  if (act === 'open') {
+    const btn = e.target.closest('button[data-act]');
+    if (btn && btn.dataset.act !== 'open') return true;
+    e.preventDefault();
+    openCard(el.closest('.item'));
+    return true;
+  }
+  if (act === 'add-tag') {
+    e.preventDefault(); e.stopPropagation();
+    promptModal({
+      title: 'Add tag',
+      fields: [{ name: 'tag', label: 'Tag', placeholder: 'e.g. revisit, weak-spot, interview', required: true }],
+      onSubmit: (d) => addTag(id, d.tag),
+    });
+    return true;
+  }
+  if (act === 'edit-tag') {
+    e.preventDefault(); e.stopPropagation();
+    const from = el.dataset.tag;
+    promptModal({
+      title: 'Rename tag',
+      hint: 'Renaming a built-in tag replaces it with your own for this item only.',
+      fields: [{ name: 'tag', label: 'Tag', value: from, required: true }],
+      onSubmit: (d) => renameTag(id, from, d.tag),
+    });
+    return true;
+  }
+  if (act === 'del-tag') { e.preventDefault(); e.stopPropagation(); removeTag(id, el.dataset.tag); return true; }
+  if (act === 'add-res') {
+    e.preventDefault(); e.stopPropagation();
+    resourceModal({ title: 'Add link', onSubmit: (d) => addResource(id, d) });
+    return true;
+  }
+  if (act === 'edit-res') {
+    e.preventDefault(); e.stopPropagation();
+    const cur = resourcesOf(id).find((r) => r.id === el.dataset.res) || {};
+    resourceModal({ title: 'Edit link', value: cur, onSubmit: (d) => updateResource(id, el.dataset.res, d) });
+    return true;
+  }
+  if (act === 'del-res') { e.preventDefault(); e.stopPropagation(); removeResource(id, el.dataset.res); return true; }
+  return false;
+}
+
 document.addEventListener('click', async (e) => {
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const act = el.dataset.act;
   const id = itemIdOf(el);
 
-  /* ---- item-level ---- */
-  if (act === 'done' && id) {
-    e.preventDefault(); e.stopPropagation();
-    const item = content.itemById.get(id);
-    if (!item?.trackable) return;
-    toggleDone(id);
-    return;
-  }
-  if (act === 'fav' && id) { e.preventDefault(); e.stopPropagation(); toggleFav(id); return; }
-  if (act === 'open' && id) {
-    if (e.target.closest('button[data-act]') && e.target.closest('button[data-act]').dataset.act !== 'open') return;
-    e.preventDefault();
-    openCard(el.closest('.item'));
-    return;
-  }
-  if (act === 'reveal') {
-    e.preventDefault();
-    el.closest('.spoiler-shade')?.classList.add('revealed');
-    return;
-  }
+  if (id && handleItemAction(act, el, e, id)) return;
+
+  if (act === 'reveal') { e.preventDefault(); el.closest('.spoiler-shade').classList.add('revealed'); return; }
   if (act === 'goto-module') { e.preventDefault(); e.stopPropagation(); location.hash = `#/m/${el.dataset.mod}`; return; }
+  if (act === 'goto-item') {
+    e.preventDefault(); e.stopPropagation();
+    const target = el.dataset.target;
+    const m = content.itemModule.get(target);
+    const s = content.itemSection.get(target);
+    if (m && s) location.hash = `#/m/${m.id}/${s.id}/${encodeURIComponent(target)}`;
+    return;
+  }
 
-  if (act === 'add-tag' && id) {
+  /* ---- links owned by a section or named explicitly ---- */
+  if (act === 'edit-res-std' || act === 'del-res-std') {
     e.preventDefault(); e.stopPropagation();
-    promptModal({
-      title: 'Add tag', fields: [{ name: 'tag', label: 'Tag', placeholder: 'e.g. revisit, weak-spot, interview', required: true }],
-      onSubmit: (d) => addTag(id, d.tag),
-    });
+    const targetId = el.dataset.id;
+    if (act === 'del-res-std') { removeResource(targetId, el.dataset.res); return; }
+    const cur = resourcesOf(targetId).find((r) => r.id === el.dataset.res) || {};
+    resourceModal({ title: 'Edit link', value: cur, onSubmit: (d) => updateResource(targetId, el.dataset.res, d) });
     return;
   }
-  if (act === 'edit-tag' && id) {
-    e.preventDefault(); e.stopPropagation();
-    const from = el.dataset.tag;
-    promptModal({
-      title: 'Rename tag', hint: 'Renaming a built-in tag replaces it with your own for this item only.',
-      fields: [{ name: 'tag', label: 'Tag', value: from, required: true }],
-      onSubmit: (d) => renameTag(id, from, d.tag),
-    });
-    return;
-  }
-  if (act === 'del-tag' && id) { e.preventDefault(); e.stopPropagation(); removeTag(id, el.dataset.tag); return; }
-
-  if (act === 'add-res' && id) {
-    e.preventDefault(); e.stopPropagation();
-    resourceModal({ title: 'Add link', onSubmit: (d) => addResource(id, d) });
-    return;
-  }
-  if ((act === 'edit-res' || act === 'edit-res-std')) {
-    e.preventDefault(); e.stopPropagation();
-    const targetId = act === 'edit-res-std' ? el.dataset.id : id;
-    const resId = el.dataset.res;
-    const cur = resourcesOf(targetId).find((r) => r.id === resId) || {};
-    resourceModal({ title: 'Edit link', value: cur, onSubmit: (d) => updateResource(targetId, resId, d) });
-    return;
-  }
-  if ((act === 'del-res' || act === 'del-res-std')) {
-    e.preventDefault(); e.stopPropagation();
-    const targetId = act === 'del-res-std' ? el.dataset.id : id;
-    removeResource(targetId, el.dataset.res);
+  if (act === 'add-section-res') {
+    resourceModal({ title: 'Add link to this section', onSubmit: (d) => addResource(el.dataset.bucket, d) });
     return;
   }
 
@@ -423,24 +509,80 @@ document.addEventListener('click', async (e) => {
   }
   if (act === 'del-global-res') { removeGlobalResource(el.dataset.res); return; }
 
-  /* ---- sections ---- */
-  if (act === 'toggle-section') {
-    const key = el.dataset.key;
-    const nowCollapsed = el.getAttribute('aria-expanded') === 'true';
-    el.setAttribute('aria-expanded', String(!nowCollapsed));
-    el.nextElementSibling.hidden = nowCollapsed;
-    state.prefs.collapsed = { ...state.prefs.collapsed, [key]: nowCollapsed };
-    setPref('collapsed', state.prefs.collapsed);
+  /* ---- the user's own modules, sections and topics ---- */
+  if (act === 'add-module') {
+    promptModal({
+      title: 'New module',
+      hint: 'Your own module sits alongside the curriculum and counts towards overall progress.',
+      fields: [{ name: 'title', label: 'Module name', placeholder: 'e.g. Distributed systems warm-ups', required: true }],
+      submitLabel: 'Create module',
+      onSubmit: (d) => { const m = addCustomModule({ title: d.title }); location.hash = `#/m/${m.id}`; toast('Module created', 'ok'); },
+    });
     return;
   }
-  if (act === 'expand-all' || act === 'collapse-all') {
-    const collapse = act === 'collapse-all';
-    $$('.sec-bar').forEach((bar) => {
-      bar.setAttribute('aria-expanded', String(!collapse));
-      bar.nextElementSibling.hidden = collapse;
-      state.prefs.collapsed[bar.dataset.key] = collapse;
+  if (act === 'add-section') {
+    const modId = el.dataset.mod;
+    promptModal({
+      title: 'New section',
+      fields: [
+        { name: 'title', label: 'Section name', placeholder: 'e.g. Problems', required: true },
+        { name: 'kind', label: 'Kind', type: 'select', value: 'concept', options: KIND_OPTIONS },
+      ],
+      submitLabel: 'Add section',
+      onSubmit: (d) => { const s = addCustomSection({ moduleId: modId, title: d.title, kind: d.kind }); location.hash = `#/m/${modId}/${s.id}`; },
     });
-    setPref('collapsed', state.prefs.collapsed);
+    return;
+  }
+  if (act === 'add-topic') {
+    const { mod, sec } = el.dataset;
+    topicModal({
+      title: 'New topic',
+      submitLabel: 'Add topic',
+      onSubmit: (d) => { addCustomItem({ moduleId: mod, sectionId: sec, title: d.title, kind: d.kind, body: d.body }); toast('Topic added', 'ok'); },
+    });
+    return;
+  }
+  if (act === 'edit-topic') {
+    e.stopPropagation();
+    const target = el.dataset.target;
+    const cur = state.custom.items.find((x) => x.id === target) || {};
+    topicModal({
+      title: 'Edit topic',
+      value: cur,
+      submitLabel: 'Save topic',
+      onSubmit: (d) => updateCustom('items', target, { title: d.title, kind: d.kind, body: d.body }),
+    });
+    return;
+  }
+  if (act === 'del-topic') {
+    e.stopPropagation();
+    const target = el.dataset.target;
+    confirmModal({
+      title: 'Delete this topic?',
+      body: 'The topic and its notes, tags and links go with it.',
+      confirmLabel: 'Delete', danger: true,
+      onConfirm: () => { removeCustom('items', target); toast('Topic deleted', 'ok'); },
+    });
+    return;
+  }
+  if (act === 'del-section') {
+    const secId = el.dataset.sec;
+    confirmModal({
+      title: 'Delete this section?',
+      body: 'Every topic inside it is deleted too.',
+      confirmLabel: 'Delete section', danger: true,
+      onConfirm: () => { removeCustom('sections', secId); location.hash = `#/m/${route.moduleId}`; },
+    });
+    return;
+  }
+  if (act === 'del-module') {
+    const modId = el.dataset.mod;
+    confirmModal({
+      title: 'Delete this module?',
+      body: 'Every section and topic you put in it is deleted too.',
+      confirmLabel: 'Delete module', danger: true,
+      onConfirm: () => { removeCustom('modules', modId); location.hash = '#/'; },
+    });
     return;
   }
 
@@ -457,9 +599,9 @@ document.addEventListener('click', async (e) => {
   if (act === 'import') { doImport(); return; }
 
   if (act === 'gist-connect') {
-    const token = $('#tok')?.value.trim();
+    const token = $('#tok') && $('#tok').value.trim();
     if (!token) { toast('Paste a token first', 'err'); return; }
-    await connectFlow(token, $('#gid')?.value.trim());
+    await connectFlow(token, $('#gid') && $('#gid').value.trim());
     return;
   }
   if (act === 'gist-pull') { await G.pull(); render(); return; }
@@ -522,11 +664,11 @@ document.addEventListener('input', (e) => {
   notesSave(id, ta.value, status);
 });
 
-/* keyboard on section bars */
+/* keyboard activation for the non-button controls */
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') {
-    const bar = e.target.closest('.sec-bar[data-act], [data-act="filter-tag"]');
-    if (bar) { e.preventDefault(); bar.click(); }
+    const el = e.target.closest('[data-act="filter-tag"], [data-act="goto-item"]');
+    if (el) { e.preventDefault(); el.click(); }
   }
 });
 
@@ -589,7 +731,6 @@ async function boot() {
 
   G.onSync(renderSyncPill);
   renderSyncPill();
-
   render();
 
   // Restoring a saved token can replace state, so it runs after first paint.

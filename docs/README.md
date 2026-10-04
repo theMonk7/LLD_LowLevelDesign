@@ -24,6 +24,18 @@ Two options:
    [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) re-runs the content build on every
    push so edits to the module markdown show up on the site without a manual rebuild.
 
+## Getting around
+
+A module opens on an overview of its sections. Click one and it fills the page, with the other
+sections becoming a sticky vertical rail on the right for switching without going back. Each section
+shows the reading and video links that belong to it — the same links the Resources page files under
+that section — and you can add more at section, item or general level.
+
+Anything you add yourself (modules, sections, topics) sits alongside the generated curriculum, counts
+towards progress, and syncs with everything else. Use **+ New module** on the dashboard or in the
+sidebar, then **+ Add topic** inside any section. Topic bodies are markdown, including `swift` code
+fences and `mermaid` diagrams.
+
 ## Rebuild the content after editing module markdown
 
 ```bash
@@ -54,9 +66,9 @@ GitHub settings if the machine is shared. Without a token everything still works
 
 | Action | Clears | Keeps |
 |---|---|---|
-| Reset module (module page) | ticks in that module | notes, tags, favourites, links |
-| Reset all progress (dashboard / settings) | every tick | notes, tags, favourites, links |
-| Erase everything (settings) | everything, including notes | — |
+| Reset module (module page) | ticks in that module | notes, tags, favourites, links, your modules |
+| Reset all progress (dashboard / settings) | every tick | notes, tags, favourites, links, your modules |
+| Erase everything (settings) | everything, including notes and your own modules | — |
 
 Settings also has JSON export/import if you want a backup independent of GitHub.
 

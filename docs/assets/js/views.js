@@ -3,10 +3,10 @@
 import {
   content, state, isDone, isFav, notesOf, visibleTags, tagsOf, resourcesOf, globalResources,
   moduleProgress, sectionProgress, overallProgress, phaseProgress, countsByKind,
-  recentlyDone, favourites, withNotes, nextUp, loadBodies, bodyOf,
+  recentlyDone, favourites, withNotes, nextUp, loadBodies, bodyOf, CUSTOM_PHASE,
 } from './store.js';
 import { renderMarkdown, enhance, stripMd } from './md.js';
-import { $, $$, esc, pct, ringSvg, barHtml, timeAgo, fmtDate, safeUrl } from './util.js';
+import { $, esc, pct, ringSvg, barHtml, timeAgo, fmtDate, safeUrl } from './util.js';
 import { gh } from './gist.js';
 
 export const THEMES = [
@@ -29,6 +29,11 @@ export const KIND_META = {
   solution: { icon: '🔒', label: 'Solution' },
   note: { icon: '·', label: 'Note' },
 };
+
+const RES_ICON = { read: '📖', watch: '▶', practice: '⌨', doc: '🔗' };
+
+/** Links attached to a whole section rather than to one item. */
+export const sectionBucket = (modId, secId) => `sec:${modId}:${secId}`;
 
 /* Shared, mutable filter state (the topbar writes it, views read it). */
 export const filters = {
@@ -68,17 +73,15 @@ export function matches(item) {
 
 /* ------------------------------------------------------- components */
 
-function tagChips(id, { editable = true } = {}) {
+function tagChips(id) {
   const chips = visibleTags(id)
     .map(({ t, seed }) => `<span class="tag ${seed ? '' : 'accent'}">
         <span class="tag-text" data-act="filter-tag" data-tag="${esc(t)}" role="button" tabindex="0">${esc(t)}</span>
-        ${editable ? `<button data-act="edit-tag" data-tag="${esc(t)}" title="Rename tag">✎</button>
-        <button data-act="del-tag" data-tag="${esc(t)}" title="Remove tag">✕</button>` : ''}
+        <button data-act="edit-tag" data-tag="${esc(t)}" title="Rename tag">✎</button>
+        <button data-act="del-tag" data-tag="${esc(t)}" title="Remove tag">✕</button>
       </span>`).join('');
-  return `${chips}${editable ? '<button class="tag add" data-act="add-tag">+ tag</button>' : ''}`;
+  return `${chips}<button class="tag add" data-act="add-tag">+ tag</button>`;
 }
-
-const RES_ICON = { read: '📖', watch: '▶', practice: '⌨', doc: '🔗' };
 
 function resourceList(id) {
   const list = resourcesOf(id);
@@ -87,7 +90,7 @@ function resourceList(id) {
     const u = safeUrl(r.url);
     return `<div class="res" data-res="${esc(r.id)}">
       <span class="rtype">${RES_ICON[r.type] || '🔗'}</span>
-      <a class="rlabel" href="${esc(u || '#')}" target="_blank" rel="noopener noreferrer">${esc(r.label || r.type)}</a>
+      <a class="rlabel" href="${esc(u || '#')}" target="_blank" rel="noopener noreferrer">${esc(r.label || r.title || r.type)}</a>
       <span class="rurl">${esc((u || r.url || '').replace(/^https?:\/\//, ''))}</span>
       <span class="ract">
         <button class="ibtn" data-act="edit-res" data-res="${esc(r.id)}" title="Edit link">✎</button>
@@ -97,6 +100,54 @@ function resourceList(id) {
   }).join('')}</div>`;
 }
 
+/** Every link under a section: the section's own bucket plus each item's. */
+export function sectionLinks(mod, sec) {
+  const own = resourcesOf(sectionBucket(mod.id, sec.id)).map((r) => ({ r, item: null }));
+  const fromItems = sec.items.flatMap((it) => resourcesOf(it.id).map((r) => ({ r, item: it })));
+  return [...own, ...fromItems];
+}
+
+function linkCountChips(links) {
+  const read = links.filter((x) => x.r.type === 'read' || x.r.type === 'doc').length;
+  const watch = links.filter((x) => x.r.type === 'watch').length;
+  const practice = links.filter((x) => x.r.type === 'practice').length;
+  return [
+    read ? `<span class="tag link-chip">📖 ${read}</span>` : '',
+    watch ? `<span class="tag link-chip">▶ ${watch}</span>` : '',
+    practice ? `<span class="tag link-chip">⌨ ${practice}</span>` : '',
+  ].join('');
+}
+
+function ownedLinkRow(r, ownerId, label) {
+  return `<div class="res" data-res="${esc(r.id)}">
+    <span class="rtype">${RES_ICON[r.type] || '🔗'}</span>
+    <a class="rlabel" href="${esc(safeUrl(r.url) || '#')}" target="_blank" rel="noopener noreferrer">${esc(r.label || r.title || r.type)}</a>
+    ${label}
+    <span class="ract">
+      <button class="ibtn" data-act="edit-res-std" data-id="${esc(ownerId)}" data-res="${esc(r.id)}" title="Edit link">✎</button>
+      <button class="ibtn" data-act="del-res-std" data-id="${esc(ownerId)}" data-res="${esc(r.id)}" title="Remove link">✕</button>
+    </span>
+  </div>`;
+}
+
+function sectionLinkPanel(mod, sec) {
+  const links = sectionLinks(mod, sec);
+  const bucket = sectionBucket(mod.id, sec.id);
+  const rows = links.map(({ r, item }) => ownedLinkRow(
+    r,
+    item ? item.id : bucket,
+    item
+      ? `<span class="res-owner" data-act="goto-item" data-target="${esc(item.id)}" role="button" tabindex="0">${esc(item.title)}</span>`
+      : '<span class="res-owner muted">whole section</span>',
+  )).join('');
+
+  return `<details class="link-panel"${links.length ? '' : ' open'}>
+    <summary>Reading &amp; videos in this section <span class="muted">· ${links.length}</span></summary>
+    <div class="res-list">${rows || '<p class="empty-note">No links here yet.</p>'}</div>
+    <button class="btn sm" data-act="add-section-res" data-bucket="${esc(bucket)}">+ Add link to this section</button>
+  </details>`;
+}
+
 export function itemCard(item, { showModule = false, open = false } = {}) {
   const done = isDone(item.id);
   const fav = isFav(item.id);
@@ -104,7 +155,7 @@ export function itemCard(item, { showModule = false, open = false } = {}) {
   const sec = content.itemSection.get(item.id);
   const km = KIND_META[item.kind] || KIND_META.note;
   const hasNotes = !!notesOf(item.id).trim();
-  const resCount = resourcesOf(item.id).length;
+  const links = resourcesOf(item.id);
 
   return `<article class="item ${done ? 'done' : ''} ${open ? 'open' : ''}" data-id="${esc(item.id)}"
     data-showmod="${showModule ? '1' : '0'}" id="i-${esc(item.id)}">
@@ -116,10 +167,12 @@ export function itemCard(item, { showModule = false, open = false } = {}) {
         <div class="item-title">${esc(item.title)}</div>
         <div class="item-sub">
           <span class="tag">${km.icon} ${km.label}</span>
+          ${item.custom ? '<span class="tag accent">mine</span>' : ''}
           ${item.difficulty ? `<span class="tag ${item.difficulty}">${item.difficulty}</span>` : ''}
           ${showModule && mod ? `<span class="tag clickable" data-act="goto-module" data-mod="${esc(mod.id)}">M${esc(mod.num)} · ${esc(mod.title)}</span>` : ''}
           ${!showModule && sec?.spoiler ? '<span class="tag">spoiler</span>' : ''}
-          ${resCount ? `<span class="tag">🔗 ${resCount}</span>` : ''}
+          ${links.map((r) => `<a class="tag link-chip" href="${esc(safeUrl(r.url) || '#')}" target="_blank" rel="noopener noreferrer"
+              title="${esc(r.label || r.type)}">${RES_ICON[r.type] || '🔗'}</a>`).join('')}
           ${visibleTags(item.id).slice(0, showModule ? 2 : 5).map(({ t }) =>
             `<span class="tag clickable" data-act="filter-tag" data-tag="${esc(t)}">${esc(t)}</span>`).join('')}
         </div>
@@ -127,27 +180,33 @@ export function itemCard(item, { showModule = false, open = false } = {}) {
       <div class="item-icons">
         ${hasNotes ? '<span class="ibtn note-on" title="Has notes">✎</span>' : ''}
         <button class="ibtn ${fav ? 'on' : ''}" data-act="fav" title="Favourite">${fav ? '★' : '☆'}</button>
-        <button class="ibtn" data-act="open" title="Expand">▾</button>
+        <button class="ibtn caret-btn" data-act="open" title="Expand">▾</button>
       </div>
     </div>
     <div class="item-body" hidden></div>
   </article>`;
 }
 
-/** Fill an expanded card's body (markdown + tools). */
+function doneButtonLabel(id) {
+  if (!isDone(id)) return 'Mark as completed';
+  const at = state.items[id]?.doneAt;
+  return `✓ Completed${at ? ` · ${fmtDate(at)}` : ''} — undo`;
+}
+
+/** Fill an expanded card's body: content, tools, then the actions at the end. */
 export async function fillItemBody(card) {
   const id = card.dataset.id;
   const body = card.querySelector('.item-body');
   if (body.dataset.filled === '1') return;
 
+  const item = content.itemById.get(id);
   const mod = content.itemModule.get(id);
   const sec = content.itemSection.get(id);
   body.innerHTML = '<p class="muted">Loading…</p>';
   try { await loadBodies(mod.id); } catch { /* fall through to empty */ }
 
-  const md = bodyOf(id) || '_No content._';
+  const md = bodyOf(id) || '_No content yet._';
   const spoiler = !!sec?.spoiler && !state.prefs.revealSolutions;
-  const done = isDone(id);
 
   body.innerHTML = `
     ${spoiler ? '<div class="spoiler-shade"><div class="veil"><div><b>Solution / commentary</b><p class="muted">Attempt it first — then reveal.</p><button class="btn sm" data-act="reveal">Reveal</button></div></div>' : ''}
@@ -155,22 +214,31 @@ export async function fillItemBody(card) {
     ${spoiler ? '</div>' : ''}
 
     <div class="item-tools">
-      ${sec?.source ? `<span class="tag">source: ${esc(mod.slug)}/${esc(sec.source)}</span>` : ''}
-      ${done ? `<span class="tag">done ${esc(fmtDate(state.items[id]?.doneAt))}</span>` : ''}
+      ${sec?.source && sec.source !== 'mine' ? `<span class="tag">source: ${esc(mod.slug || mod.title)}/${esc(sec.source)}</span>` : ''}
+      ${item?.custom ? '<span class="tag accent">your topic</span>' : ''}
     </div>
 
-    <h4 style="margin:16px 0 0;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--tx3)">Tags</h4>
-    <div class="item-sub" style="margin-top:7px">${tagChips(id)}</div>
+    <h4 class="sub-label">Tags</h4>
+    <div class="item-sub">${tagChips(id)}</div>
 
-    <h4 style="margin:16px 0 0;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--tx3)">
-      Reading &amp; videos
-      <button class="btn sm" style="float:right;margin-top:-4px" data-act="add-res">+ Add link</button>
+    <h4 class="sub-label">Reading &amp; videos
+      <button class="btn sm" data-act="add-res">+ Add link</button>
     </h4>
     ${resourceList(id)}
 
     <div class="notes-wrap">
       <div class="notes-head"><span>My notes</span><span class="muted" data-notes-status></span></div>
       <textarea data-act="notes" placeholder="What clicked, what tripped you up, the one-line rule you want to remember…">${esc(notesOf(id))}</textarea>
+    </div>
+
+    <div class="item-foot">
+      ${item?.trackable
+        ? `<button class="btn ${isDone(id) ? '' : 'primary'} done-btn" data-act="done">${esc(doneButtonLabel(id))}</button>`
+        : '<span class="muted">Reference material — not tracked</span>'}
+      ${item?.custom ? `<button class="btn sm" data-act="edit-topic" data-target="${esc(id)}">Edit topic</button>
+        <button class="btn sm danger" data-act="del-topic" data-target="${esc(id)}">Delete</button>` : ''}
+      <span class="spacer"></span>
+      <button class="btn sm" data-act="collapse">Collapse ▴</button>
     </div>`;
 
   body.dataset.filled = '1';
@@ -181,10 +249,17 @@ export function refreshItemBodyBlocks(card) {
   const id = card.dataset.id;
   const body = card.querySelector('.item-body');
   if (!body || body.dataset.filled !== '1') return;
+
   const tagRow = body.querySelector('.item-sub');
   if (tagRow) tagRow.innerHTML = tagChips(id);
   const res = body.querySelector('.res-list, .empty-note');
   if (res) res.outerHTML = resourceList(id);
+
+  const btn = body.querySelector('.done-btn');
+  if (btn) {
+    btn.classList.toggle('primary', !isDone(id));
+    btn.textContent = doneButtonLabel(id);
+  }
 }
 
 function groupItems(items) {
@@ -197,6 +272,8 @@ function groupItems(items) {
   return groups;
 }
 
+const allPhases = () => [...content.data.phases, { id: CUSTOM_PHASE, title: 'My modules' }];
+
 /* --------------------------------------------------------- dashboard */
 export function viewDashboard() {
   const o = overallProgress();
@@ -207,6 +284,7 @@ export function viewDashboard() {
   const favs = favourites();
   const notes = withNotes();
   const recent = recentlyDone(6);
+  const nextHref = next ? `#/m/${next.module.id}/${next.section.id}/${encodeURIComponent(next.item.id)}` : '#/';
 
   const kindCards = ['concept', 'theory', 'problem', 'exercise', 'project']
     .filter((k) => kinds[k])
@@ -219,16 +297,26 @@ export function viewDashboard() {
       </div>`;
     }).join('');
 
-  const phases = content.data.phases.map((ph) => {
-    const pp = phaseProgress(ph.id);
+  const phases = allPhases().map((ph) => {
     const mods = content.modules.filter((m) => m.phaseId === ph.id);
+    const custom = ph.id === CUSTOM_PHASE;
+    if (!mods.length && !custom) return '';
+    const pp = phaseProgress(ph.id);
     return `
     <div class="phase-head">
       <h2>${esc(ph.title)}</h2>
       ${barHtml(pct(pp.done, pp.total), pct(pp.done, pp.total) === 100 ? 'ok' : '')}
       <span class="muted">${pp.done}/${pp.total}</span>
+      ${custom ? '<button class="btn sm" data-act="add-module">+ New module</button>' : ''}
     </div>
-    <div class="grid mods">${mods.map(moduleCard).join('')}</div>`;
+    <div class="grid mods">
+      ${mods.map(moduleCard).join('')}
+      ${custom && !mods.length
+        ? `<button class="card mod-card add-card" data-act="add-module">
+             <span class="plus">+</span><span class="mc-title">Add your own module</span>
+             <span class="muted">Group topics the curriculum does not cover</span></button>`
+        : ''}
+    </div>`;
   }).join('');
 
   return `
@@ -238,11 +326,12 @@ export function viewDashboard() {
       <div class="eyebrow">Low Level Design · Swift</div>
       <h1>${p === 100 ? 'Curriculum complete 🎉' : 'Your learning dashboard'}</h1>
       <p class="sub">${o.done} of ${o.total} tracked items done across ${content.modules.length} modules.
-      ${next ? `Next up: <a href="#/m/${next.module.id}/${encodeURIComponent(next.item.id)}"><b>${esc(next.item.title)}</b></a> in M${esc(next.module.num)}.` : 'Nothing left in the queue.'}</p>
+      ${next ? `Next up: <a href="${nextHref}"><b>${esc(next.item.title)}</b></a> in M${esc(next.module.num)}.` : 'Nothing left in the queue.'}</p>
       <div class="hero-actions">
-        ${next ? `<a class="btn primary" href="#/m/${next.module.id}/${encodeURIComponent(next.item.id)}">Continue learning →</a>` : ''}
+        ${next ? `<a class="btn primary" href="${nextHref}">Continue learning →</a>` : ''}
         <a class="btn" href="#/browse">Browse everything</a>
         <a class="btn" href="#/resources">Reading &amp; videos</a>
+        <button class="btn" data-act="add-module">+ New module</button>
         <button class="btn danger" data-act="reset-all">Reset progress</button>
       </div>
     </div>
@@ -260,15 +349,17 @@ export function viewDashboard() {
 
   ${recent.length ? `
   <h2 class="sec">Recently completed <span class="count">last ${recent.length}</span></h2>
-  <div class="items">${recent.map((r) => `
-    <a class="item" style="display:block" href="#/m/${r.module.id}/${encodeURIComponent(r.id)}">
+  <div class="items">${recent.map((r) => {
+    const s = content.itemSection.get(r.id);
+    return `<a class="item" style="display:block" href="#/m/${r.module.id}/${s ? s.id : ''}/${encodeURIComponent(r.id)}">
       <div class="item-head">
         <span class="tick" style="background:var(--ok);border-color:var(--ok);color:#fff">✓</span>
         <div class="item-main">
           <div class="item-title">${esc(r.item.title)}</div>
           <div class="item-sub"><span class="tag">M${esc(r.module.num)} · ${esc(r.module.title)}</span><span class="muted">${esc(timeAgo(r.at))}</span></div>
         </div>
-      </div></a>`).join('')}
+      </div></a>`;
+  }).join('')}
   </div>` : ''}
 
   ${phases}`;
@@ -279,6 +370,7 @@ function moduleCard(m) {
   const v = pct(p.done, p.total);
   const complete = p.total && p.done === p.total;
   const probs = m.sections.find((s) => s.id === 'problems');
+  const links = m.sections.reduce((a, s) => a + sectionLinks(m, s).length, 0);
   return `<a class="card mod-card ${complete ? 'done' : ''}" href="#/m/${m.id}">
     <div class="mc-top">
       <span class="mc-num">M${esc(m.num)}</span>
@@ -288,6 +380,7 @@ function moduleCard(m) {
     <div class="mc-meta">
       <span>${m.sections.length} sections</span>
       ${probs ? `<span>${probs.items.length} problems</span>` : ''}
+      ${links ? `<span>🔗 ${links}</span>` : ''}
       ${m.difficulty ? `<span class="tag ${m.difficulty}">${m.difficulty}</span>` : ''}
     </div>
     <div class="bar-row">${barHtml(v, complete ? 'ok' : '')}<span class="pct">${p.done}/${p.total} · ${v}%</span></div>
@@ -295,58 +388,128 @@ function moduleCard(m) {
 }
 
 /* ------------------------------------------------------------ module */
-export function viewModule(mod, focusId = null) {
+
+function moduleHead(mod, secId) {
   const p = moduleProgress(mod);
   const v = pct(p.done, p.total);
-  const anyFilter = filters.q || filtersActive();
-
-  const sections = mod.sections.map((sec) => {
-    const sp = sectionProgress(sec);
-    const visible = sec.items.filter((it) => !anyFilter || matches(it));
-    const key = `${mod.id}:${sec.id}`;
-    const collapsed = state.prefs.collapsed[key] === true && !anyFilter;
-    if (anyFilter && !visible.length) return '';
-
-    const groups = groupItems(visible);
-    const inner = [...groups.entries()].map(([g, items]) => `
-      <div class="group-wrap">
-        ${g ? `<div class="group-label">${esc(g)} <span class="muted">· ${items.length}</span></div>` : ''}
-        <div class="items">${items.map((it) => itemCard(it, { open: it.id === focusId })).join('')}</div>
-      </div>`).join('');
-
-    return `<section class="sec-block" data-section="${esc(sec.id)}">
-      <div class="sec-bar" data-act="toggle-section" data-key="${esc(key)}" aria-expanded="${!collapsed}" role="button" tabindex="0">
-        <span class="caret">▾</span>
-        <h3>${esc(sec.title)}</h3>
-        <span class="src">${esc(sec.source)}</span>
-        <span class="spacer"></span>
-        ${sp.total ? `<span class="mini">${barHtml(pct(sp.done, sp.total), sp.done === sp.total ? 'ok' : 'thin')}</span>
-          <span class="muted">${sp.done}/${sp.total}</span>` : '<span class="muted">reference</span>'}
-      </div>
-      <div class="sec-content" ${collapsed ? 'hidden' : ''}>${inner}</div>
-    </section>`;
-  }).join('');
-
+  const phase = allPhases().find((x) => x.id === mod.phaseId);
+  const secTitle = secId ? mod.sections.find((s) => s.id === secId)?.title : null;
   return `
   <div class="page-head">
-    <div class="crumbs"><a href="#/">Dashboard</a> <span>/</span> <span>Module ${esc(mod.num)}</span></div>
+    <div class="crumbs">
+      <a href="#/">Dashboard</a> <span>/</span>
+      <a href="#/m/${mod.id}">Module ${esc(mod.num)}</a>
+      ${secTitle ? `<span>/</span> <span>${esc(secTitle)}</span>` : ''}
+    </div>
     <div class="spread">
       <div>
-        <div class="eyebrow">${esc(content.data.phases.find((x) => x.id === mod.phaseId)?.title || '')}</div>
+        <div class="eyebrow">${esc(phase ? phase.title : '')}</div>
         <h1>${esc(mod.title)}</h1>
       </div>
       <div class="row">
-        <button class="btn sm" data-act="expand-all">Expand all</button>
-        <button class="btn sm" data-act="collapse-all">Collapse all</button>
+        ${mod.custom ? `<button class="btn sm" data-act="add-section" data-mod="${esc(mod.id)}">+ Section</button>` : ''}
         <button class="btn sm danger" data-act="reset-module" data-mod="${esc(mod.id)}">Reset module</button>
+        ${mod.custom ? `<button class="btn sm danger" data-act="del-module" data-mod="${esc(mod.id)}">Delete module</button>` : ''}
       </div>
     </div>
     <div class="bar-row" style="margin-top:14px">
       ${barHtml(v, v === 100 ? 'ok' : '')}<span class="pct">${p.done}/${p.total} · ${v}%</span>
     </div>
-  </div>
-  ${anyFilter ? '<p class="muted">Filters are on — sections show only matching items.</p>' : ''}
-  ${sections || '<div class="empty-state"><div class="big">🔍</div><p>No items in this module match the current filters.</p></div>'}`;
+  </div>`;
+}
+
+/** Overview: one card per section, with its progress and its links. */
+function sectionOverview(mod) {
+  const anyFilter = filters.q || filtersActive();
+  const cards = mod.sections.map((sec) => {
+    const sp = sectionProgress(sec);
+    const links = sectionLinks(mod, sec);
+    const visible = anyFilter ? sec.items.filter(matches) : sec.items;
+    if (anyFilter && !visible.length) return '';
+    return `<a class="card sec-card" href="#/m/${mod.id}/${esc(sec.id)}" data-section="${esc(sec.id)}">
+      <div class="sc-top">
+        <span class="sc-icon">${KIND_META[sec.kind] ? KIND_META[sec.kind].icon : '▤'}</span>
+        <span class="sc-title">${esc(sec.title)}</span>
+        ${sec.source && sec.source !== 'mine' ? `<span class="src">${esc(sec.source)}</span>` : '<span class="tag accent">mine</span>'}
+      </div>
+      <div class="sc-meta">
+        <span>${visible.length} item${visible.length === 1 ? '' : 's'}</span>
+        ${linkCountChips(links)}
+      </div>
+      <div class="bar-row">
+        ${barHtml(sp.total ? pct(sp.done, sp.total) : 0, sp.total && sp.done === sp.total ? 'ok' : '')}
+        <span class="pct">${sp.total ? `${sp.done}/${sp.total}` : 'reference'}</span>
+      </div>
+    </a>`;
+  }).join('');
+
+  return `<div class="grid secs">${cards || '<div class="empty-state"><div class="big">🔍</div><p>No section matches the current filters.</p></div>'}</div>
+    ${mod.custom ? `<div class="sec-add"><button class="btn sm" data-act="add-section" data-mod="${esc(mod.id)}">+ Add a section</button></div>` : ''}`;
+}
+
+/** The vertical, sticky switcher shown while one section is open. */
+function sectionRail(mod, activeId) {
+  return `<aside class="sec-rail" aria-label="Sections">
+    <a class="rail-tab all" href="#/m/${mod.id}">◳ All sections</a>
+    ${mod.sections.map((sec) => {
+      const sp = sectionProgress(sec);
+      const v = pct(sp.done, sp.total);
+      return `<a class="rail-tab ${sec.id === activeId ? 'active' : ''}" href="#/m/${mod.id}/${esc(sec.id)}">
+        <span class="rt-icon">${KIND_META[sec.kind] ? KIND_META[sec.kind].icon : '▤'}</span>
+        <span class="rt-body">
+          <span class="rt-title">${esc(sec.title)}</span>
+          <span class="rt-meta">${sp.total ? `${sp.done}/${sp.total}` : 'ref'}</span>
+          <span class="rt-bar"><i style="width:${v}%"></i></span>
+        </span>
+      </a>`;
+    }).join('')}
+  </aside>`;
+}
+
+function sectionBody(mod, sec, focusItemId) {
+  const anyFilter = filters.q || filtersActive();
+  const visible = anyFilter ? sec.items.filter(matches) : sec.items;
+  const sp = sectionProgress(sec);
+  const groups = groupItems(visible);
+
+  const inner = [...groups.entries()].map(([g, items]) => `
+    <div class="group-wrap">
+      ${g ? `<div class="group-label">${esc(g)} <span class="muted">· ${items.length}</span></div>` : ''}
+      <div class="items">${items.map((it) => itemCard(it, { open: it.id === focusItemId })).join('')}</div>
+    </div>`).join('');
+
+  return `<section class="sec-block open-section" data-section="${esc(sec.id)}">
+    <div class="sec-bar" aria-expanded="true">
+      <h3>${esc(sec.title)}</h3>
+      ${sec.source && sec.source !== 'mine' ? `<span class="src">${esc(sec.source)}</span>` : '<span class="tag accent">mine</span>'}
+      ${linkCountChips(sectionLinks(mod, sec))}
+      <span class="spacer"></span>
+      ${sp.total ? `<span class="mini">${barHtml(pct(sp.done, sp.total), sp.done === sp.total ? 'ok' : 'thin')}</span>
+        <span class="muted">${sp.done}/${sp.total}</span>` : '<span class="muted">reference</span>'}
+    </div>
+    <div class="sec-content">
+      ${sectionLinkPanel(mod, sec)}
+      ${inner || '<p class="empty-note">Nothing here yet.</p>'}
+      <div class="sec-add">
+        <button class="btn sm" data-act="add-topic" data-mod="${esc(mod.id)}" data-sec="${esc(sec.id)}">+ Add topic</button>
+        ${sec.custom ? `<button class="btn sm danger" data-act="del-section" data-sec="${esc(sec.id)}">Delete section</button>` : ''}
+      </div>
+    </div>
+  </section>`;
+}
+
+export function viewModule(mod, secId = null, focusItemId = null) {
+  const sec = secId ? mod.sections.find((s) => s.id === secId) : null;
+  if (!sec) {
+    return `${moduleHead(mod, null)}
+      ${filters.q || filtersActive() ? '<p class="muted">Filters are on — sections show only matching items.</p>' : ''}
+      ${sectionOverview(mod)}`;
+  }
+  return `${moduleHead(mod, secId)}
+    <div class="mod-layout">
+      <div class="mod-main">${sectionBody(mod, sec, focusItemId)}</div>
+      ${sectionRail(mod, secId)}
+    </div>`;
 }
 
 /* ------------------------------------------------------------ browse */
@@ -377,70 +540,81 @@ export function viewBrowse() {
 /* --------------------------------------------------------- resources */
 export function viewResources() {
   const q = filters.q.toLowerCase();
-  const rows = [];
-  for (const m of content.modules) {
-    for (const s of m.sections) {
-      for (const it of s.items) {
-        const rs = resourcesOf(it.id);
-        if (!rs.length) continue;
-        const keep = rs.filter((r) => !q || `${r.label} ${r.url} ${it.title} ${m.title}`.toLowerCase().includes(q));
-        if (keep.length) rows.push({ m, it, rs: keep });
-      }
-    }
-  }
-  const globals = globalResources().filter((r) => !q || `${r.title} ${r.url}`.toLowerCase().includes(q));
-  const total = rows.reduce((a, r) => a + r.rs.length, 0) + globals.length;
+  const hit = (s) => !q || String(s).toLowerCase().includes(q);
+
+  const blocks = content.modules.map((m) => {
+    const secRows = m.sections.map((sec) => {
+      const links = sectionLinks(m, sec)
+        .filter(({ r, item }) => hit(`${r.label || r.title} ${r.url} ${item ? item.title : ''} ${sec.title} ${m.title}`));
+      if (!links.length) return '';
+      const bucket = sectionBucket(m.id, sec.id);
+      return `<div class="res-sec">
+        <div class="res-sec-head">
+          <a href="#/m/${m.id}/${esc(sec.id)}">${esc(sec.title)}</a>
+          <span class="muted">${links.length}</span>
+          <span class="spacer"></span>
+          <button class="btn sm" data-act="add-section-res" data-bucket="${esc(bucket)}">+ Add</button>
+        </div>
+        <div class="res-list">${links.map(({ r, item }) => ownedLinkRow(
+          r,
+          item ? item.id : bucket,
+          item
+            ? `<span class="res-owner" data-act="goto-item" data-target="${esc(item.id)}" role="button" tabindex="0">${esc(item.title)}</span>`
+            : '<span class="res-owner muted">whole section</span>',
+        )).join('')}</div>
+      </div>`;
+    }).join('');
+    if (!secRows) return '';
+    const count = m.sections.reduce((a, s) => a + sectionLinks(m, s).length, 0);
+    return `<section class="card res-mod">
+      <div class="res-mod-head">
+        <span class="mc-num">M${esc(m.num)}</span>
+        <a href="#/m/${m.id}"><b>${esc(m.title)}</b></a>
+        <span class="muted">${count} link${count === 1 ? '' : 's'}</span>
+      </div>
+      ${secRows}
+    </section>`;
+  }).join('');
+
+  const globals = globalResources().filter((r) => hit(`${r.title || r.label} ${r.url}`));
+  const total = content.modules.reduce((a, m) => a + m.sections.reduce((b, s) => b + sectionLinks(m, s).length, 0), 0) + globals.length;
 
   return `
   <div class="page-head">
     <div class="eyebrow">Library</div>
     <h1>Reading &amp; videos <span class="muted">· ${total} links</span></h1>
-    <p class="sub">Seeded from the <a href="https://krucible.netlify.app/" target="_blank" rel="noopener noreferrer">Krucible LLD sheet</a> and attached to the matching concept or problem. Add your own anywhere; edits and additions sync with your progress.</p>
+    <p class="sub">Seeded from the <a href="https://krucible.netlify.app/" target="_blank" rel="noopener noreferrer">Krucible LLD sheet</a>
+    and filed under the module and section each link belongs to — the same links show up on those sections in place.
+    Add your own to a section, an item, or to the general list.</p>
   </div>
 
-  <h2 class="sec">General resources <span class="count">${globals.length}</span>
-    <button class="btn sm" data-act="add-global-res">+ Add</button></h2>
-  <div class="res-list">
-    ${globals.map((r) => {
-      const u = safeUrl(r.url);
-      return `<div class="res">
+  <section class="card res-mod">
+    <div class="res-mod-head">
+      <span class="mc-num">GEN</span><b>General resources</b>
+      <span class="muted">${globals.length}</span>
+      <span class="spacer"></span>
+      <button class="btn sm" data-act="add-global-res">+ Add</button>
+    </div>
+    <div class="res-list">
+      ${globals.map((r) => `<div class="res">
         <span class="rtype">${RES_ICON[r.type] || '🔗'}</span>
-        <a class="rlabel" href="${esc(u || '#')}" target="_blank" rel="noopener noreferrer">${esc(r.title || r.label)}</a>
-        <span class="rurl">${esc((u || '').replace(/^https?:\/\//, ''))}</span>
+        <a class="rlabel" href="${esc(safeUrl(r.url) || '#')}" target="_blank" rel="noopener noreferrer">${esc(r.title || r.label)}</a>
+        <span class="rurl">${esc((safeUrl(r.url) || '').replace(/^https?:\/\//, ''))}</span>
         <span class="ract">
           <button class="ibtn" data-act="edit-global-res" data-res="${esc(r.id)}" title="Edit">✎</button>
           <button class="ibtn" data-act="del-global-res" data-res="${esc(r.id)}" title="Remove">✕</button>
-        </span></div>`;
-    }).join('') || '<p class="empty-note">No general links.</p>'}
-  </div>
+        </span></div>`).join('') || '<p class="empty-note">No general links.</p>'}
+    </div>
+  </section>
 
-  ${rows.length ? rows.map(({ m, it, rs }) => `
-    <div class="card" style="padding:13px 15px;margin-top:10px">
-      <div class="spread">
-        <div><a href="#/m/${m.id}/${encodeURIComponent(it.id)}"><b>${esc(it.title)}</b></a>
-          <div class="muted">M${esc(m.num)} · ${esc(m.title)}</div></div>
-        ${isDone(it.id) ? '<span class="tag" style="color:var(--ok)">done</span>' : ''}
-      </div>
-      <div class="res-list" data-id="${esc(it.id)}">
-        ${rs.map((r) => {
-          const u = safeUrl(r.url);
-          return `<div class="res" data-res="${esc(r.id)}">
-            <span class="rtype">${RES_ICON[r.type] || '🔗'}</span>
-            <a class="rlabel" href="${esc(u || '#')}" target="_blank" rel="noopener noreferrer">${esc(r.label || r.type)}</a>
-            <span class="rurl">${esc((u || '').replace(/^https?:\/\//, ''))}</span>
-            <span class="ract">
-              <button class="ibtn" data-act="edit-res-std" data-id="${esc(it.id)}" data-res="${esc(r.id)}" title="Edit">✎</button>
-              <button class="ibtn" data-act="del-res-std" data-id="${esc(it.id)}" data-res="${esc(r.id)}" title="Remove">✕</button>
-            </span></div>`;
-        }).join('')}
-      </div>
-    </div>`).join('') : '<p class="empty-note" style="margin-top:14px">No item links match that search.</p>'}`;
+  ${blocks || '<p class="empty-note" style="margin-top:14px">No links match that search.</p>'}`;
 }
 
 /* ---------------------------------------------------------- settings */
 export function viewSettings() {
   const o = overallProgress();
   const connected = !!gh.token;
+  const c = state.custom;
   return `
   <div class="page-head">
     <div class="eyebrow">Settings</div>
@@ -449,8 +623,8 @@ export function viewSettings() {
 
   <section class="card" style="padding:18px;margin-bottom:16px">
     <div class="spread"><h2 class="sec" style="margin:0">Cross-browser sync (GitHub Gist)</h2>
-      <span class="tag ${connected ? 'accent' : ''}">${connected ? `connected as @${esc(gh.user?.login || '')}` : 'not connected'}</span></div>
-    <p class="sub" style="margin-top:8px">Your token is your account. A different token means a different private Gist — and therefore a separate set of progress, notes, tags and links.</p>
+      <span class="tag ${connected ? 'accent' : ''}">${connected ? `connected as @${esc(gh.user ? gh.user.login : '')}` : 'not connected'}</span></div>
+    <p class="sub" style="margin-top:8px">Your token is your account. A different token means a different private Gist — and therefore a separate set of progress, notes, tags, links and custom modules.</p>
 
     <div class="warn-box" style="margin-top:12px">
       <b>Security:</b> the token is kept in this browser's <code>localStorage</code> and sent only to <code>api.github.com</code>.
@@ -501,8 +675,16 @@ export function viewSettings() {
   </section>
 
   <section class="card" style="padding:18px;margin-bottom:16px">
+    <h2 class="sec" style="margin:0 0 10px">Your own content</h2>
+    <p class="sub">${c.modules.length} module${c.modules.length === 1 ? '' : 's'},
+      ${c.sections.length} section${c.sections.length === 1 ? '' : 's'} and
+      ${c.items.length} topic${c.items.length === 1 ? '' : 's'} added by you. They sync with everything else.</p>
+    <div class="row" style="margin-top:10px"><button class="btn" data-act="add-module">+ New module</button></div>
+  </section>
+
+  <section class="card" style="padding:18px;margin-bottom:16px">
     <h2 class="sec" style="margin:0 0 10px">Backup</h2>
-    <p class="sub">A plain JSON file with every tick, note, tag and link — independent of GitHub.</p>
+    <p class="sub">A plain JSON file with every tick, note, tag, link and custom module — independent of GitHub.</p>
     <div class="row" style="margin-top:10px">
       <button class="btn" data-act="export">Export JSON</button>
       <button class="btn" data-act="import">Import JSON</button>
@@ -511,7 +693,7 @@ export function viewSettings() {
 
   <section class="card" style="padding:18px">
     <h2 class="sec" style="margin:0 0 10px">Danger zone</h2>
-    <p class="sub">“Reset progress” clears completion only — <b>notes, tags, favourites and links are kept</b>. “Erase everything” removes all of it.</p>
+    <p class="sub">“Reset progress” clears completion only — <b>notes, tags, favourites, links and your modules are kept</b>. “Erase everything” removes all of it.</p>
     <div class="row" style="margin-top:12px">
       <button class="btn danger" data-act="reset-all">Reset all progress (${o.done} ticks)</button>
       <button class="btn danger" data-act="erase-all">Erase everything</button>
@@ -519,7 +701,7 @@ export function viewSettings() {
   </section>
 
   <p class="muted" style="margin-top:22px">
-    ${content.data.stats.items} items · ${content.data.stats.trackable} trackable · ${content.data.stats.seededLinks} seeded links ·
+    ${content.data.stats.items} generated items · ${content.data.stats.seededLinks} seeded links ·
     content generated ${esc(new Date(content.data.generatedAt).toLocaleString())}
   </p>`;
 }
@@ -536,7 +718,7 @@ export function renderSidebarProgress() {
 }
 
 export function renderSidebarModules(activeId) {
-  $('#sideModules').innerHTML = content.modules.map((m) => {
+  $('#sideModules').innerHTML = `${content.modules.map((m) => {
     const p = moduleProgress(m);
     const v = pct(p.done, p.total);
     const complete = p.total && p.done === p.total;
@@ -548,7 +730,10 @@ export function renderSidebarModules(activeId) {
       </div>
       <div class="sm-bar"><i style="width:${v}%"></i></div>
     </a>`;
-  }).join('');
+  }).join('')}
+  <button class="side-mod add-mod" data-act="add-module">
+    <div class="sm-top"><span class="sm-num">+</span><span class="sm-title">New module</span></div>
+  </button>`;
 }
 
 export function renderFilterBar() {
