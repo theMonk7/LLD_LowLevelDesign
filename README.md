@@ -7,6 +7,22 @@ Topic coverage is a strict superset of the [Krucible LLD sheet](https://krucible
 
 ---
 
+## The learning dashboard
+
+A static site in [`docs/`](docs/) renders every module's markdown as tickable concept and problem
+cards, with progress bars per section and module, notes, tags, favourites, search/filters, reading
+and video links (seeded from the Krucible sheet), themes, and a reset that keeps your notes.
+Progress syncs across browsers through a private GitHub Gist — your token is the account.
+
+```bash
+python3 -m http.server 8777 --directory docs   # then open http://127.0.0.1:8777/
+node tools/build-content.mjs                   # rebuild after editing module markdown
+```
+
+Hosting and sync setup: [`docs/README.md`](docs/README.md).
+
+---
+
 ## How this repo works
 
 ```

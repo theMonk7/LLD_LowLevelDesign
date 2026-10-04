@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en" data-mode="dark" data-theme="indigo">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>LLD Mastery — Learning Dashboard</title>
+<meta name="description" content="Personal low-level-design learning dashboard: concepts, problems, progress, notes and resources." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧩</text></svg>" />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link rel="stylesheet" href="assets/css/app.css" />
+</head>
+<body>
+
+<div id="boot" class="boot"><div class="boot-card"><div class="spinner"></div><p>Loading curriculum…</p></div></div>
+
+<div class="app" id="app" hidden>
+
+  <!-- ───────────────────────────── sidebar ───────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="side-head">
+      <a class="brand" href="#/">
+        <span class="brand-mark">LLD</span>
+        <span class="brand-text">Mastery<small>Swift edition</small></span>
+      </a>
+      <button class="icon-btn only-mobile" id="closeNav" title="Close navigation" aria-label="Close navigation">✕</button>
+    </div>
+
+    <div class="side-progress" id="sideProgress"></div>
+
+    <nav class="side-nav">
+      <a href="#/" data-nav="dashboard" class="nav-link"><span class="ic">◉</span>Dashboard</a>
+      <a href="#/browse" data-nav="browse" class="nav-link"><span class="ic">⌕</span>Browse all</a>
+      <a href="#/resources" data-nav="resources" class="nav-link"><span class="ic">🔗</span>Resources</a>
+      <a href="#/settings" data-nav="settings" class="nav-link"><span class="ic">⚙</span>Settings &amp; sync</a>
+    </nav>
+
+    <div class="side-section-label">Modules</div>
+    <div class="side-modules" id="sideModules"></div>
+
+    <div class="side-foot">
+      <div class="sync-pill" id="syncPill" title="Sync status">
+        <span class="dot"></span><span class="sync-text">Local only</span>
+      </div>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <!-- ─────────────────────────────── main ────────────────────────────── -->
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn only-mobile" id="openNav" title="Open navigation" aria-label="Open navigation">☰</button>
+
+      <div class="search-wrap">
+        <span class="search-ic">⌕</span>
+        <input id="search" type="search" placeholder="Search concepts, patterns, problems, tags…  (press /)" autocomplete="off" />
+        <button class="clear-btn" id="clearSearch" hidden title="Clear search">✕</button>
+      </div>
+
+      <div class="top-actions">
+        <button class="chip-btn" id="filterBtn" title="Filters">
+          <span>Filters</span><span class="badge" id="filterCount" hidden>0</span>
+        </button>
+        <button class="icon-btn" id="themeBtn" title="Theme">🎨</button>
+        <button class="icon-btn" id="modeBtn" title="Light / dark">◐</button>
+      </div>
+    </header>
+
+    <div class="filter-bar" id="filterBar" hidden></div>
+
+    <main class="view" id="view"></main>
+  </div>
+</div>
+
+<!-- ───────────────────────────── overlays ───────────────────────────── -->
+<div class="modal-root" id="modalRoot" hidden></div>
+<div class="toasts" id="toasts"></div>
+
+<script type="module" src="assets/js/app.js"></script>
+</body>
+</html>

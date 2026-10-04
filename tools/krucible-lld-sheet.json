@@ -1,0 +1,428 @@
+{
+ "OOP Fundamentals": [
+  {
+   "t": "What is OOP?",
+   "watch": "https://youtu.be/g-ZNUL96uMw?si=KdvsMFw48b0QZGQq",
+   "read": "https://www.geeksforgeeks.org/object-oriented-programming-oops-concept-in-java/",
+   "practice": ""
+  },
+  {
+   "t": "Encapsulation",
+   "watch": "",
+   "read": "https://www.geeksforgeeks.org/encapsulation-in-java/",
+   "practice": ""
+  },
+  {
+   "t": "Abstraction",
+   "watch": "",
+   "read": "https://www.geeksforgeeks.org/abstraction-in-java-2/",
+   "practice": ""
+  },
+  {
+   "t": "Inheritance",
+   "watch": "",
+   "read": "https://www.geeksforgeeks.org/inheritance-in-java/",
+   "practice": ""
+  },
+  {
+   "t": "Polymorphism",
+   "watch": "",
+   "read": "https://www.geeksforgeeks.org/polymorphism-in-java/",
+   "practice": ""
+  },
+  {
+   "t": "Classes vs Objects",
+   "watch": "",
+   "read": "https://www.geeksforgeeks.org/classes-objects-java/",
+   "practice": ""
+  },
+  {
+   "t": "Interface vs Abstract Class",
+   "watch": "",
+   "read": "https://www.geeksforgeeks.org/difference-between-abstract-class-and-interface-in-java/",
+   "practice": ""
+  },
+  {
+   "t": "Composition vs Inheritance",
+   "watch": "",
+   "read": "https://www.geeksforgeeks.org/java/difference-between-inheritance-and-composition-in-java/",
+   "practice": ""
+  },
+  {
+   "t": "Coupling vs Cohesion",
+   "watch": "",
+   "read": "https://www.geeksforgeeks.org/software-engineering/software-engineering-differences-between-coupling-and-cohesion/",
+   "practice": ""
+  }
+ ],
+ "SOLID Principles": [
+  {
+   "t": "S — Single Responsibility",
+   "watch": "https://youtu.be/UQqY3_6Epbg?si=RoGb2rBUcCdYqa2f",
+   "read": "https://www.digitalocean.com/community/conceptual-articles/s-o-l-i-d-the-first-five-principles-of-object-oriented-design#single-responsibility-principle",
+   "practice": ""
+  },
+  {
+   "t": "O — Open/Closed",
+   "watch": "https://youtu.be/-ptMtJAdj40?si=AyNyfpnBg2o15Fd6",
+   "read": "https://www.digitalocean.com/community/conceptual-articles/s-o-l-i-d-the-first-five-principles-of-object-oriented-design#open-closed-principle",
+   "practice": ""
+  },
+  {
+   "t": "L — Liskov Substitution",
+   "watch": "https://youtu.be/dJQMqNOC4Pc?si=0nqrU9yVxY9aquiz",
+   "read": "https://www.digitalocean.com/community/conceptual-articles/s-o-l-i-d-the-first-five-principles-of-object-oriented-design#liskov-substitution-principle",
+   "practice": ""
+  },
+  {
+   "t": "I — Interface Segregation",
+   "watch": "https://youtu.be/JVWZR23B_iE?si=oIie6GTVPZgttyEl",
+   "read": "https://www.digitalocean.com/community/conceptual-articles/s-o-l-i-d-the-first-five-principles-of-object-oriented-design#interface-segregation-principle",
+   "practice": ""
+  },
+  {
+   "t": "D — Dependency Inversion",
+   "watch": "https://youtu.be/9oHY5TllWaU?si=yfy9O8HwPLAVF91v",
+   "read": "https://www.digitalocean.com/community/conceptual-articles/s-o-l-i-d-the-first-five-principles-of-object-oriented-design#dependency-inversion-principle",
+   "practice": ""
+  }
+ ],
+ "Other Design Principles": [
+  {
+   "t": "DRY — Don't Repeat Yourself",
+   "watch": "https://youtu.be/IGH4-ZhfVDk?si=bV7_PftPpUszARnI",
+   "read": "https://www.geeksforgeeks.org/software-engineering/dont-repeat-yourselfdry-in-software-development/",
+   "practice": ""
+  },
+  {
+   "t": "KISS — Keep It Simple, Stupid",
+   "watch": "https://youtu.be/P4_2T4561B4?si=eC6pcQF4EAtsCNKN",
+   "read": "https://www.geeksforgeeks.org/software-engineering/kiss-principle-in-software-development/",
+   "practice": ""
+  },
+  {
+   "t": "YAGNI — You Aren't Gonna Need It",
+   "watch": "https://youtu.be/dw-ITfOi2KM?si=pU6gM8DP18CUeNoB",
+   "read": "https://www.geeksforgeeks.org/software-engineering/what-is-yagni-principle-you-arent-gonna-need-it/",
+   "practice": ""
+  },
+  {
+   "t": "Law of Demeter (Don't Talk to Strangers)",
+   "watch": "https://youtu.be/dFt_KVjmeqw?si=ux_cdKl3ZFXOATJt",
+   "read": "https://lawsofsoftwareengineering.com/laws/law-of-demeter/",
+   "practice": ""
+  }
+ ],
+ "UML Diagrams": [
+  {
+   "t": "Class Diagram",
+   "watch": "https://www.youtube.com/watch?v=3cmzqZzwNDM",
+   "read": "https://www.geeksforgeeks.org/unified-modeling-language-uml-class-diagrams/",
+   "practice": ""
+  },
+  {
+   "t": "Sequence Diagram",
+   "watch": "https://www.youtube.com/watch?v=pCK6prSq8aw",
+   "read": "https://www.geeksforgeeks.org/unified-modeling-language-uml-sequence-diagrams/",
+   "practice": ""
+  },
+  {
+   "t": "Use Case Diagram",
+   "watch": "https://www.youtube.com/watch?v=zid-MVo7M-E",
+   "read": "https://www.geeksforgeeks.org/use-case-diagram/",
+   "practice": ""
+  },
+  {
+   "t": "Activity Diagram",
+   "watch": "https://www.youtube.com/watch?v=XFTAIj2N2Lc",
+   "read": "https://www.geeksforgeeks.org/unified-modeling-language-uml-activity-diagrams/",
+   "practice": ""
+  }
+ ],
+ "Design Patterns — Creational": [
+  {
+   "t": "Singleton",
+   "watch": "https://www.youtube.com/watch?v=hUE_j6q0LTQ",
+   "read": "https://refactoring.guru/design-patterns/singleton",
+   "practice": ""
+  },
+  {
+   "t": "Factory Method",
+   "watch": "https://www.youtube.com/watch?v=EcFVTgRHJLM",
+   "read": "https://refactoring.guru/design-patterns/factory-method",
+   "practice": ""
+  },
+  {
+   "t": "Abstract Factory",
+   "watch": "https://youtu.be/v-GiuMmsXj4?si=OEL4399BuVDZl5ii",
+   "read": "https://refactoring.guru/design-patterns/abstract-factory",
+   "practice": ""
+  },
+  {
+   "t": "Builder",
+   "watch": "https://youtu.be/MaY_MDdWkQw?si=XQA-1ZYKkHSA8NTS",
+   "read": "https://refactoring.guru/design-patterns/builder",
+   "practice": ""
+  },
+  {
+   "t": "Prototype",
+   "watch": "https://youtu.be/DcFhITC9v0E?si=QAdJdTiq2q7GFitT",
+   "read": "https://refactoring.guru/design-patterns/prototype",
+   "practice": ""
+  }
+ ],
+ "Design Patterns — Structural": [
+  {
+   "t": "Adapter",
+   "watch": "https://youtu.be/2PKQtcJjYvc?si=Gi-0AR8_TxNXW3yK",
+   "read": "https://refactoring.guru/design-patterns/adapter",
+   "practice": ""
+  },
+  {
+   "t": "Bridge",
+   "watch": "https://youtu.be/F1YQ7YRjttI?si=VGEN43jgham9nhZJ",
+   "read": "https://refactoring.guru/design-patterns/bridge",
+   "practice": ""
+  },
+  {
+   "t": "Composite",
+   "watch": "https://youtu.be/oo9AsGqnisk?si=qNz8SYGjuM2CCO2Y",
+   "read": "https://refactoring.guru/design-patterns/composite",
+   "practice": ""
+  },
+  {
+   "t": "Decorator",
+   "watch": "https://youtu.be/GCraGHx6gso?si=Rf99o4C3eE32JzwN",
+   "read": "https://refactoring.guru/design-patterns/decorator",
+   "practice": ""
+  },
+  {
+   "t": "Facade",
+   "watch": "https://youtu.be/K4FkHVO5iac?si=Dk8VgAIROk4MGNDG",
+   "read": "https://refactoring.guru/design-patterns/facade",
+   "practice": ""
+  },
+  {
+   "t": "Flyweight",
+   "watch": "https://youtu.be/qscOsQV-K14?si=3r8rEgv6T3UcZ6yg",
+   "read": "https://refactoring.guru/design-patterns/flyweight",
+   "practice": ""
+  },
+  {
+   "t": "Proxy",
+   "watch": "https://youtu.be/NwaabHqPHeM?si=rGES0N-gsVIMEUL8",
+   "read": "https://refactoring.guru/design-patterns/proxy",
+   "practice": ""
+  }
+ ],
+ "Design Patterns — Behavioral": [
+  {
+   "t": "Chain of Responsibility",
+   "watch": "https://youtu.be/FafNcoBvVQo?si=NJH2fe3miC32UNsI",
+   "read": "https://refactoring.guru/design-patterns/chain-of-responsibility",
+   "practice": ""
+  },
+  {
+   "t": "Command",
+   "watch": "https://youtu.be/9qA5kw8dcSU?si=A8lGsPMWu3igoMi5",
+   "read": "https://refactoring.guru/design-patterns/command",
+   "practice": ""
+  },
+  {
+   "t": "Iterator",
+   "watch": "https://youtu.be/uNTNEfwYXhI?si=pqUsdIf_NLw9Cni4",
+   "read": "https://refactoring.guru/design-patterns/iterator",
+   "practice": ""
+  },
+  {
+   "t": "Mediator",
+   "watch": "https://youtu.be/35D5cBosD4c?si=T1DTbjI7uT6mFEwk",
+   "read": "https://refactoring.guru/design-patterns/mediator",
+   "practice": ""
+  },
+  {
+   "t": "Memento",
+   "watch": "https://youtu.be/_Q5rXfGuyLQ?si=mIkHl3Isq986Uz3i",
+   "read": "https://refactoring.guru/design-patterns/memento",
+   "practice": ""
+  },
+  {
+   "t": "Observer",
+   "watch": "https://youtu.be/_BpmfnqjgzQ?si=VDNdazAIb0EdWVZo",
+   "read": "https://refactoring.guru/design-patterns/observer",
+   "practice": ""
+  },
+  {
+   "t": "State",
+   "watch": "https://youtu.be/N12L5D78MAA?si=cWNCMStfn6K8tZ8N",
+   "read": "https://refactoring.guru/design-patterns/state",
+   "practice": ""
+  },
+  {
+   "t": "Strategy",
+   "watch": "https://youtu.be/v9ejT8FO-7I?si=ucbsd4O71JW2Aobe",
+   "read": "https://refactoring.guru/design-patterns/strategy",
+   "practice": ""
+  },
+  {
+   "t": "Template Method",
+   "watch": "https://youtu.be/7ocpwK9uesw?si=s5kxRsRCEEIkzk9K",
+   "read": "https://refactoring.guru/design-patterns/template-method",
+   "practice": ""
+  },
+  {
+   "t": "Visitor",
+   "watch": "https://youtu.be/UQP5XqMqtqQ?si=LzY0lnbcqDJwXnMV",
+   "read": "https://refactoring.guru/design-patterns/visitor",
+   "practice": ""
+  }
+ ],
+ "LLD Practice Problems": [
+  {
+   "t": "Design Parking Lot",
+   "watch": "https://www.youtube.com/watch?v=7IX84K9g23U",
+   "read": "https://github.com/anomaly2104/lld-parking-lot",
+   "practice": "https://leetcode.com/problems/design-parking-system/"
+  },
+  {
+   "t": "Design Elevator System",
+   "watch": "https://youtu.be/TDww3MjL-0A?si=S_etrTGzYpru9GA6",
+   "read": "https://www.geeksforgeeks.org/system-design/elevator-system-low-level-design-lld/",
+   "practice": ""
+  },
+  {
+   "t": "Design ATM",
+   "watch": "https://youtu.be/GSuaqBR0Wpc?si=WeAQPAlYNcLWN4rY",
+   "read": "https://medium.com/double-pointer/system-design-interview-atm-machine-design-80c90b044a35",
+   "practice": "https://leetcode.com/problems/design-an-atm-machine/description/"
+  },
+  {
+   "t": "Design Chess Game",
+   "watch": "https://www.youtube.com/watch?v=RVHNcng0oF0",
+   "read": "https://www.geeksforgeeks.org/dsa/design-a-chess-game/",
+   "practice": "https://github.com/ashishps1/awesome-low-level-design/blob/main/problems/chess-game.md"
+  },
+  {
+   "t": "Design Splitwise",
+   "watch": "https://www.youtube.com/watch?v=2Fz_LQJuq7s",
+   "read": "https://www.geeksforgeeks.org/system-design/system-design-of-backend-for-expense-sharing-apps-like-splitwise/",
+   "practice": "https://github.com/gopalbala/billsharing"
+  },
+  {
+   "t": "Design BookMyShow",
+   "watch": "https://www.youtube.com/live/ohdu6TUoE5s?si=ULbLFsxaWPYcvIvz",
+   "read": "https://www.geeksforgeeks.org/system-design/design-bookmyshow-a-system-design-interview-question/",
+   "practice": "https://github.com/praypratyay/BookMyShow"
+  },
+  {
+   "t": "Design Snake & Ladder",
+   "watch": "https://www.youtube.com/watch?v=5LDfqzXwxxU",
+   "read": "https://www.geeksforgeeks.org/system-design/design-snake-and-ladder-game-using-python-oops/",
+   "practice": "https://leetcode.com/problems/design-snake-game/"
+  },
+  {
+   "t": "Design Tic-Tac-Toe",
+   "watch": "https://www.youtube.com/watch?v=gktZsX9Z8Kw",
+   "read": "https://www.geeksforgeeks.org/implementation-of-tic-tac-toe-game/",
+   "practice": "https://leetcode.com/problems/design-tic-tac-toe/"
+  },
+  {
+   "t": "Design LRU Cache",
+   "watch": "https://www.youtube.com/watch?v=B7iCXl_KSoM",
+   "read": "https://github.com/anomaly2104/cache-low-level-system-design",
+   "practice": "https://leetcode.com/problems/lru-cache/"
+  },
+  {
+   "t": "Design Rate Limiter",
+   "watch": "https://youtu.be/MIJFyUPG4Z4?si=zLinlQFLKJmulVKS",
+   "read": "https://bytebytego.com/courses/system-design-interview/design-a-rate-limiter",
+   "practice": "https://leetcode.com/problems/design-hit-counter/"
+  },
+  {
+   "t": "Design Library Management",
+   "watch": "https://youtu.be/fVqv4B8sG1s?si=WNucFpHMvAGTvaTJ",
+   "read": "https://www.geeksforgeeks.org/library-management-system/",
+   "practice": ""
+  },
+  {
+   "t": "Design Hotel Management",
+   "watch": "https://www.youtube.com/watch?v=u0W2ckqmb_U",
+   "read": "https://www.geeksforgeeks.org/design-online-hotel-booking-system-like-oyo-rooms/",
+   "practice": ""
+  },
+  {
+   "t": "Design Vending Machine",
+   "watch": "https://youtu.be/cMVSM4_2f0Y?si=5E6QKa4nVQlL1SqE",
+   "read": "https://www.geeksforgeeks.org/system-design/vending-machine-high-level-system-design/",
+   "practice": "https://github.com/ashishps1/awesome-low-level-design/blob/main/problems/vending-machine.md"
+  },
+  {
+   "t": "Design Logging Framework",
+   "watch": "https://www.youtube.com/watch?v=FKA2KgkkcqY",
+   "read": "https://medium.com/@say2ankitgupta/low-level-design-of-logging-framework-ffaae7c701ee",
+   "practice": "https://leetcode.com/problems/design-log-storage-system/"
+  },
+  {
+   "t": "Design Coffee Vending Machine",
+   "watch": "https://youtu.be/OmcsVDYaiLA?si=_C_hSN_XBq-ZCSsn",
+   "read": "https://programmingappliedai.substack.com/p/lld-design-coffee-vending-machine",
+   "practice": "https://github.com/ashishps1/awesome-low-level-design/blob/main/problems/coffee-vending-machine.md"
+  },
+  {
+   "t": "Design a Browser History",
+   "watch": "https://youtu.be/mG3KLugbOdc?si=iTEHPOct-BoHJsN2",
+   "read": "https://www.geeksforgeeks.org/problems/design-browser-history/1",
+   "practice": "https://leetcode.com/problems/design-browser-history/"
+  },
+  {
+   "t": "Design Underground System",
+   "watch": "https://youtu.be/AdRVFQo0l7w?si=jZHfHD2KAImhVFbK",
+   "read": "https://algo.monster/liteproblems/1396",
+   "practice": "https://leetcode.com/problems/design-underground-system/"
+  },
+  {
+   "t": "Design Min Stack",
+   "watch": "https://youtu.be/NdDIaH91P0g?si=ZqZZ0RfFUN0Upi07",
+   "read": "https://www.geeksforgeeks.org/design-and-implement-special-stack-data-structure/",
+   "practice": "https://leetcode.com/problems/min-stack/"
+  },
+  {
+   "t": "Design Trie (Prefix Tree)",
+   "watch": "https://youtu.be/oobqoCJlHA0?si=CipkenfgCSh-F5RE",
+   "read": "https://www.geeksforgeeks.org/trie-insert-and-search/",
+   "practice": "https://leetcode.com/problems/implement-trie-prefix-tree/"
+  },
+  {
+   "t": "Design HashMap",
+   "watch": "https://youtu.be/cNWsgbKwwoU?si=Nz1oGqugPhUOWeSm",
+   "read": "https://www.geeksforgeeks.org/implementing-our-own-hash-table-with-separate-chaining-in-java/",
+   "practice": "https://leetcode.com/problems/design-hashmap/"
+  }
+ ],
+ "Additional Resources": [
+  {
+   "t": "Refactoring Guru — Design Patterns",
+   "watch": "",
+   "read": "https://refactoring.guru/design-patterns",
+   "practice": "https://refactoring.guru/design-patterns/catalog"
+  },
+  {
+   "t": "Low Level Design Primer (GitHub)",
+   "watch": "",
+   "read": "https://github.com/prasadgujar/low-level-design-primer",
+   "practice": "https://github.com/prasadgujar/low-level-design-primer/blob/master/questions.md"
+  },
+  {
+   "t": "Coder Army LLD Playlist (Hindi)",
+   "watch": "https://youtube.com/playlist?list=PLQEaRBV9gAFvzp6XhcNFpk1WdOcyVo9qT",
+   "read": "",
+   "practice": ""
+  },
+  {
+   "t": "Concept && Coding LLD (Shrayansh Jain)",
+   "watch": "https://www.youtube.com/playlist?list=PL6W8uoQQ2c61X_9e6Net0WdYZidm7zooW",
+   "read": "",
+   "practice": ""
+  }
+ ]
+}

@@ -1,0 +1,79 @@
+# LLD Mastery — learning dashboard
+
+A static site that turns this repo into a trackable curriculum: every `CONCEPTS.md`, `README.md`,
+`EXERCISES.md`, `PROJECT.md` and `SOLUTIONS.md` is sliced into items you can tick off, star, tag,
+annotate and attach links to. Progress is stored in a private GitHub Gist so it follows you across
+browsers and machines.
+
+## Run it locally
+
+```bash
+python3 -m http.server 8777 --directory docs
+# open http://127.0.0.1:8777/
+```
+
+Opening `index.html` straight off disk will not work — `fetch()` of the JSON data needs HTTP.
+
+## Host it on GitHub Pages
+
+Two options:
+
+1. **Zero config** — Settings → Pages → Source: *Deploy from a branch* → `main` / `/docs`.
+   The generated data is committed, so nothing has to run in CI.
+2. **Auto-regenerating** — Settings → Pages → Source: *GitHub Actions*.
+   [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) re-runs the content build on every
+   push so edits to the module markdown show up on the site without a manual rebuild.
+
+## Rebuild the content after editing module markdown
+
+```bash
+node tools/build-content.mjs
+```
+
+It writes `docs/data/content.json` (index: modules, sections, item titles, tags, seeded links) and
+`docs/data/modules/mNN.json` (the markdown bodies, fetched lazily per module).
+
+## Sync across browsers (GitHub Gist)
+
+Settings → *Cross-browser sync*. Paste a personal access token:
+
+- classic token with the **`gist`** scope, or
+- fine-grained token with **Account permissions → Gists → Read and write**.
+
+The dashboard finds a Gist containing `lld-dashboard-state.json`, or creates a private one. **The token
+is the account** — a different token means a different Gist and therefore a separate set of progress,
+notes, tags and links.
+
+**Security.** The token lives in this browser's `localStorage` and is sent only to `api.github.com`.
+Anyone with access to the browser profile can read it, so scope it to gists only and revoke it from
+GitHub settings if the machine is shared. Without a token everything still works, stored locally.
+
+## Resets
+
+| Action | Clears | Keeps |
+|---|---|---|
+| Reset module (module page) | ticks in that module | notes, tags, favourites, links |
+| Reset all progress (dashboard / settings) | every tick | notes, tags, favourites, links |
+| Erase everything (settings) | everything, including notes | — |
+
+Settings also has JSON export/import if you want a backup independent of GitHub.
+
+## Layout
+
+```
+docs/
+├── index.html
+├── assets/css/app.css
+├── assets/js/
+│   ├── app.js        router, event delegation, modals
+│   ├── store.js      content index + user state + progress maths
+│   ├── gist.js       GitHub Gist backend
+│   ├── views.js      dashboard / module / browse / resources / settings
+│   ├── md.js         markdown → HTML, Swift highlighting, Mermaid
+│   └── util.js       DOM, toasts, modals, progress rings
+└── data/             generated — do not edit by hand
+```
+
+Reading and video links are seeded from the [Krucible LLD sheet](https://krucible.netlify.app/) and
+matched to the corresponding concept or problem; seeded links can be edited or removed per item, and
+your changes are stored as an overlay so a content rebuild never overwrites them.
