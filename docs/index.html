@@ -7,7 +7,7 @@
 <meta name="description" content="Personal low-level-design learning dashboard: concepts, problems, progress, notes and resources." />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧩</text></svg>" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-<link rel="stylesheet" href="assets/css/app.css?v=2" />
+<link rel="stylesheet" href="assets/css/app.css?v=3" />
 <!-- Last-word guard: an overlay must never paint while it carries [hidden].
      Inline and after the stylesheet, so even a stale cached app.css cannot
      resurrect the modal backdrop over the page. -->
@@ -21,6 +21,7 @@
 
   <!-- ───────────────────────────── sidebar ───────────────────────────── -->
   <aside class="sidebar" id="sidebar">
+    <div class="side-top">
     <div class="side-head">
       <a class="brand" href="#/">
         <span class="brand-mark">LLD</span>
@@ -30,6 +31,7 @@
     </div>
 
     <div class="side-progress" id="sideProgress"></div>
+    </div>
 
     <nav class="side-nav">
       <a href="#/" data-nav="dashboard" class="nav-link"><span class="ic">◉</span>Dashboard</a>
@@ -61,6 +63,9 @@
       </div>
 
       <div class="top-actions">
+        <button class="chip-btn sync-chip" id="syncTop" data-state="local" title="Sync status">
+          <span class="sync-ic"></span><span class="sync-name">Local</span>
+        </button>
         <button class="chip-btn" id="filterBtn" title="Filters">
           <span>Filters</span><span class="badge" id="filterCount" hidden>0</span>
         </button>
@@ -79,7 +84,7 @@
 <div class="modal-root" id="modalRoot" hidden></div>
 <div class="toasts" id="toasts"></div>
 
-<script type="module" src="assets/js/app.js?v=2"></script>
+<script type="module" src="assets/js/app.js?v=3"></script>
 <script>
 /* If the module never ran (blocked CDN, file:// origin, old browser), the boot
    overlay would otherwise sit over the page forever showing a spinner. */

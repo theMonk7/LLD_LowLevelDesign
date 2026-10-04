@@ -309,8 +309,10 @@ export function viewModule(mod, focusId = null) {
 
     const groups = groupItems(visible);
     const inner = [...groups.entries()].map(([g, items]) => `
-      ${g ? `<div class="group-label">${esc(g)} <span class="muted">· ${items.length}</span></div>` : ''}
-      <div class="items">${items.map((it) => itemCard(it, { open: it.id === focusId })).join('')}</div>`).join('');
+      <div class="group-wrap">
+        ${g ? `<div class="group-label">${esc(g)} <span class="muted">· ${items.length}</span></div>` : ''}
+        <div class="items">${items.map((it) => itemCard(it, { open: it.id === focusId })).join('')}</div>
+      </div>`).join('');
 
     return `<section class="sec-block" data-section="${esc(sec.id)}">
       <div class="sec-bar" data-act="toggle-section" data-key="${esc(key)}" aria-expanded="${!collapsed}" role="button" tabindex="0">

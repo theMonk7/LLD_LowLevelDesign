@@ -78,9 +78,21 @@ function sectionize(md, levels) {
   };
 }
 
+/** Inline markdown has no place in a card title: `code`, *em*, **strong**, [links]. */
+function plainText(s) {
+  return String(s)
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/(^|[\s(])\*([^*]+)\*/g, '$1$2')
+    .replace(/(^|[\s(])_([^_]+)_/g, '$1$2')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /** Clean a heading into a display title: drop numbering prefixes and the ⭐ marker. */
 function cleanTitle(raw) {
-  return raw
+  return plainText(raw)
     .replace(/\s*⭐.*$/, '')
     .replace(/^\d+\.\s*/, '')
     .replace(/^(SOLVED|DESIGN-ONLY|SOLO|Mock|E)\s*(\d+)\s*[—–-]\s*/i, (_, kind, n) =>
@@ -136,7 +148,7 @@ function buildModule(dirName) {
   };
 
   const readmeTitle = files.readme ? splitTitle(files.readme).title : dirName;
-  const title = (readmeTitle || dirName)
+  const title = plainText(readmeTitle || dirName)
     .replace(/^Module\s+\d+\s*[—–-]\s*/i, '')
     .replace(/\s*\([^)]*\)\s*$/, '')
     .trim();
@@ -185,7 +197,7 @@ function buildModule(dirName) {
         if (m) {
           const group = m[1].toUpperCase() === 'SOLVED' ? 'Solved walkthroughs' : 'Design-only walkthroughs';
           problems.push(makeItem({
-            moduleId, sectionId: 'problems', title: m[3].replace(/\s*⭐.*$/, '').trim(), body: b.body,
+            moduleId, sectionId: 'problems', title: plainText(m[3]).replace(/\s*⭐.*$/, '').trim(), body: b.body,
             kind: 'problem', group, difficulty,
             tags: [m[1].toUpperCase() === 'SOLVED' ? 'Solved' : 'Design-only', /⭐/.test(b.title) ? 'Must-know' : null].filter(Boolean),
           }));
@@ -232,7 +244,7 @@ function buildModule(dirName) {
       const isTask = !!m;
       const label = m ? `${m[1].toUpperCase() === 'E' ? `E${m[2]}` : `${m[1]} ${m[2]}`} — ${m[3] || 'Task'}` : b.title;
       items.push(makeItem({
-        moduleId, sectionId: 'exercises', title: label.replace(/\s*⭐.*$/, '').trim(), body: b.body,
+        moduleId, sectionId: 'exercises', title: plainText(label).replace(/\s*⭐.*$/, '').trim(), body: b.body,
         kind: isTask ? 'exercise' : 'note',
         group: isTask ? (/^SOLO/i.test(b.title) ? 'Solo problems' : /^Mock/i.test(b.title) ? 'Mock interviews' : 'Graded exercises') : 'Extras',
         trackable: isTask,
@@ -253,7 +265,7 @@ function buildModule(dirName) {
       source: 'PROJECT.md',
       items: [makeItem({
         moduleId, sectionId: 'project',
-        title: (pTitle || 'Project').replace(/^Module\s+\d+\s+Project\s*[—–-]\s*/i, '').trim(),
+        title: plainText(pTitle || 'Project').replace(/^Module\s+\d+\s+Project\s*[—–-]\s*/i, '').trim(),
         body, kind: 'project', difficulty, tags: ['Project'],
       })],
     });

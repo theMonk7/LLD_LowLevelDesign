@@ -276,6 +276,26 @@ function doImport() {
 
 /* ------------------------------------------------------- sync chrome */
 function renderSyncPill() {
+  const chip = $('#syncTop');
+  if (chip) {
+    chip.dataset.state = G.gh.status;
+    chip.title = G.gh.message;
+    $('.sync-name', chip).textContent =
+      G.gh.status === 'synced' ? `@${G.gh.user?.login || 'synced'}`
+        : G.gh.status === 'syncing' ? 'Syncing'
+          : G.gh.status === 'error' ? 'Error'
+            : 'Local';
+    const slot = $('.sync-ic', chip);
+    const url = G.gh.user?.avatar;
+    const img = slot.querySelector('img');
+    if (url && !img) {
+      const el = document.createElement('img');
+      el.alt = ''; el.src = url;
+      slot.appendChild(el);
+    } else if (url && img) img.src = url;
+    else if (img) img.remove();
+  }
+
   const pill = $('#syncPill');
   pill.dataset.state = G.gh.status;
   const avatar = G.gh.user?.avatar;
@@ -548,6 +568,7 @@ async function boot() {
   $('#closeNav').onclick = () => $('#app').classList.remove('nav-open');
   $('#scrim').onclick = () => $('#app').classList.remove('nav-open');
   $('#syncPill').onclick = () => { location.hash = '#/settings'; };
+  $('#syncTop').onclick = () => { location.hash = '#/settings'; };
 
   document.addEventListener('keydown', (e) => {
     if (e.key === '/' && !/input|textarea/i.test(e.target.tagName)) { e.preventDefault(); $('#search').focus(); }
