@@ -594,3 +594,33 @@ a.link-chip:hover { border-color: var(--a-line); color: var(--a); text-decoratio
   .rail-tab { flex: none; min-width: 150px; }
   .rail-tab.all { border-bottom: 1px solid var(--line); border-radius: var(--r); margin-bottom: 0; min-width: 120px; }
 }
+
+/* ===================================================== notes authoring */
+.notes-head { align-items: center; }
+.notes-head .nh-right { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; }
+
+/* the modal is wider than the default dialog: long notes need room */
+.modal:has(.notes-modal) { width: min(920px, 100%); }
+.notes-modal { display: flex; flex-direction: column; gap: 12px; }
+.nm-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.nm-head h3 { margin: 0; }
+.nm-head .hint { margin: 2px 0 0; }
+.nm-text, .nm-preview {
+  min-height: min(58vh, 520px); max-height: 68vh; overflow: auto;
+  border: 1px solid var(--line); border-radius: var(--r); background: var(--panel2);
+  padding: 14px 16px; color: var(--tx); font: inherit; font-size: 14.5px; line-height: 1.7;
+}
+.nm-text { resize: vertical; outline: none; width: 100%; }
+.nm-text:focus { border-color: var(--a-line); box-shadow: 0 0 0 3px var(--a-soft); }
+.nm-preview > :first-child { margin-top: 0; }
+.nm-foot { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+
+/* select any passage and turn it into a quoted note */
+.sel-note-btn {
+  position: absolute; z-index: 90; padding: 6px 11px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--a-line); background: var(--panel); color: var(--a);
+  font-size: 12.5px; font-weight: 650; box-shadow: var(--shadow);
+  animation: slideIn .14s var(--ease);
+}
+.sel-note-btn:hover { background: var(--a-soft); }
+.md[data-annotatable]::selection, .md[data-annotatable] *::selection { background: var(--a-soft); }

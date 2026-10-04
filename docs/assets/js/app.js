@@ -6,17 +6,17 @@ import {
   addResource, updateResource, removeResource,
   addGlobalResource, updateGlobalResource, removeGlobalResource, globalResources,
   resourcesOf, resetProgress, resetEverything, exportState, hydrate,
-  moduleProgress, sectionProgress, isDone,
+  moduleProgress, sectionProgress, isDone, notesOf,
   addCustomModule, addCustomSection, addCustomItem, updateCustom, removeCustom,
-} from './store.js';
-import * as G from './gist.js';
+} from './store.js?v=7';
+import * as G from './gist.js?v=7';
 import {
   filters, filtersActive, itemCard, fillItemBody, refreshItemBodyBlocks,
   viewDashboard, viewModule, viewBrowse, viewResources, viewSettings,
   renderSidebarProgress, renderSidebarModules, renderFilterBar, THEMES,
-} from './views.js';
-import { invalidateDiagrams } from './md.js';
-import { $, $$, esc, pct, debounce, toast, modal, confirmModal, barHtml, safeUrl } from './util.js';
+} from './views.js?v=7';
+import { invalidateDiagrams, renderMarkdown, enhance } from './md.js?v=7';
+import { $, $$, esc, pct, debounce, toast, modal, confirmModal, barHtml, safeUrl } from './util.js?v=7';
 
 /* ------------------------------------------------------------- route */
 let route = { name: 'dashboard', moduleId: null, sectionId: null, itemId: null };
@@ -271,6 +271,138 @@ function themeModal() {
   });
 }
 
+/* ------------------------------------------------------- notes editor */
+
+/** Keep the inline textarea, the note indicator and storage in step. */
+function writeNotes(id, text, statusEl) {
+  if (statusEl) statusEl.textContent = 'saving…';
+  notesSave(id, text, statusEl);
+  const inline = $(`.item[data-id="${CSS.escape(id)}"] textarea[data-act="notes"]`);
+  if (inline && inline.value !== text) inline.value = text;
+}
+
+/**
+ * Full-screen note editor. Scrolling a 110px box to re-read a long note is
+ * painful, so the same text gets a large pane with an optional preview.
+ */
+function openNotesModal(id, { append = '' } = {}) {
+  const item = content.itemById.get(id);
+  const start = notesOf(id);
+  const seeded = append ? (start ? `${start.replace(/\s*$/, '')}\n\n${append}` : append) : start;
+
+  modal({
+    render: () => `
+      <div class="notes-modal">
+        <div class="nm-head">
+          <div>
+            <h3>Notes</h3>
+            <p class="hint">${esc(item ? item.title : '')}</p>
+          </div>
+          <div class="row">
+            <div class="seg">
+              <button data-nm="write" aria-pressed="true">Write</button>
+              <button data-nm="preview" aria-pressed="false">Preview</button>
+            </div>
+            <button class="btn" data-x="close">Done</button>
+          </div>
+        </div>
+        <textarea class="nm-text" placeholder="What clicked, what tripped you up, the one-line rule you want to remember…">${esc(seeded)}</textarea>
+        <div class="nm-preview md" hidden></div>
+        <div class="nm-foot">
+          <span class="muted" data-nm-status></span>
+          <span class="spacer"></span>
+          <span class="muted"><span data-nm-count>0</span> characters · markdown supported · saves as you type</span>
+        </div>
+      </div>`,
+    onMount: (root, close) => {
+      const ta = $('.nm-text', root);
+      const preview = $('.nm-preview', root);
+      const status = $('[data-nm-status]', root);
+      const count = $('[data-nm-count]', root);
+      const sync = () => { count.textContent = String(ta.value.length); };
+
+      if (append) {
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+        ta.scrollTop = ta.scrollHeight;
+        writeNotes(id, ta.value, status);
+      } else {
+        ta.focus();
+      }
+      sync();
+
+      ta.addEventListener('input', () => { sync(); writeNotes(id, ta.value, status); });
+
+      $('[data-nm="write"]', root).onclick = () => {
+        preview.hidden = true; ta.hidden = false;
+        $('[data-nm="write"]', root).setAttribute('aria-pressed', 'true');
+        $('[data-nm="preview"]', root).setAttribute('aria-pressed', 'false');
+      };
+      $('[data-nm="preview"]', root).onclick = () => {
+        preview.innerHTML = renderMarkdown(ta.value || '_Nothing written yet._');
+        enhance(preview);
+        preview.hidden = false; ta.hidden = true;
+        $('[data-nm="write"]', root).setAttribute('aria-pressed', 'false');
+        $('[data-nm="preview"]', root).setAttribute('aria-pressed', 'true');
+      };
+      $('[data-x="close"]', root).onclick = () => {
+        notesSave.flush(id, ta.value, null);
+        close();
+        patchCard(id);
+      };
+    },
+  });
+}
+
+/* ------------------------------------------------- select text to annotate */
+let selBtn = null;
+
+function hideSelectionButton() {
+  if (selBtn) { selBtn.remove(); selBtn = null; }
+}
+
+/** Trim a pasted-in quote so a note stays readable. */
+function quoteOf(text) {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  const cut = clean.length > 400 ? `${clean.slice(0, 400)}…` : clean;
+  return `> ${cut}\n\n`;
+}
+
+function showSelectionButton(id, rect, text) {
+  hideSelectionButton();
+  selBtn = document.createElement('button');
+  selBtn.className = 'sel-note-btn';
+  selBtn.type = 'button';
+  selBtn.textContent = '✎ Note this';
+  selBtn.style.top = `${rect.bottom + window.scrollY + 8}px`;
+  selBtn.style.left = `${Math.max(12, rect.left + window.scrollX)}px`;
+  selBtn.onmousedown = (e) => e.preventDefault();   // keep the selection alive
+  selBtn.onclick = () => {
+    hideSelectionButton();
+    openNotesModal(id, { append: quoteOf(text) });
+  };
+  document.body.appendChild(selBtn);
+}
+
+document.addEventListener('mouseup', (e) => {
+  // mouseup can land on the document itself, which has no closest()
+  const target = e.target && e.target.nodeType === 1 ? e.target : null;
+  if (target && target.closest('.sel-note-btn')) return;
+  setTimeout(() => {
+    const sel = window.getSelection();
+    const text = sel ? String(sel) : '';
+    if (!text.trim() || !sel.rangeCount) { hideSelectionButton(); return; }
+    const node = sel.anchorNode;
+    const el = node && (node.nodeType === 1 ? node : node.parentElement);
+    const host = el && el.closest('.md[data-annotatable]');
+    const card = host && host.closest('.item[data-id]');
+    if (!card) { hideSelectionButton(); return; }
+    showSelectionButton(card.dataset.id, sel.getRangeAt(0).getBoundingClientRect(), text);
+  }, 0);
+});
+document.addEventListener('scroll', hideSelectionButton, true);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideSelectionButton(); });
+
 /* ------------------------------------------------------ reset flows */
 function confirmResetAll() {
   confirmModal({
@@ -449,6 +581,7 @@ function handleItemAction(act, el, e, id) {
     return true;
   }
   if (act === 'del-tag') { e.preventDefault(); e.stopPropagation(); removeTag(id, el.dataset.tag); return true; }
+  if (act === 'expand-notes') { e.preventDefault(); e.stopPropagation(); openNotesModal(id); return true; }
   if (act === 'add-res') {
     e.preventDefault(); e.stopPropagation();
     resourceModal({ title: 'Add link', onSubmit: (d) => addResource(id, d) });
@@ -465,6 +598,7 @@ function handleItemAction(act, el, e, id) {
 }
 
 document.addEventListener('click', async (e) => {
+  if (!e.target || e.target.nodeType !== 1) return;
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const act = el.dataset.act;
@@ -656,6 +790,7 @@ function syncFilterChrome() {
 
 /* notes typing */
 document.addEventListener('input', (e) => {
+  if (!e.target || e.target.nodeType !== 1) return;
   const ta = e.target.closest('textarea[data-act="notes"]');
   if (!ta) return;
   const id = itemIdOf(ta);
@@ -666,7 +801,7 @@ document.addEventListener('input', (e) => {
 
 /* keyboard activation for the non-button controls */
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.nodeType === 1) {
     const el = e.target.closest('[data-act="filter-tag"], [data-act="goto-item"]');
     if (el) { e.preventDefault(); el.click(); }
   }

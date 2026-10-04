@@ -36,11 +36,23 @@ towards progress, and syncs with everything else. Use **+ New module** on the da
 sidebar, then **+ Add topic** inside any section. Topic bodies are markdown, including `swift` code
 fences and `mermaid` diagrams.
 
+## Taking notes
+
+Every item has a notes box that saves as you type. **⤢ Expand** opens the same note full-screen with
+a markdown preview, which beats scrolling a small box for anything long. Selecting any passage of an
+item's text pops up **✎ Note this** — it appends that passage to the item's note as a markdown
+blockquote and opens the editor with the cursor after it.
+
 ## Rebuild the content after editing module markdown
 
 ```bash
-node tools/build-content.mjs
+node tools/build-content.mjs     # regenerate docs/data from the module markdown
+node tools/set-version.mjs       # bump the cache-busting ?v= on every asset
 ```
+
+`set-version.mjs` stamps one version onto `index.html` **and** onto each internal
+`import … from './x.js'`. Both matter: versioning only `app.js` lets a browser pair fresh app code
+with a cached `store.js`, which fails at load with a missing-export error.
 
 It writes `docs/data/content.json` (index: modules, sections, item titles, tags, seeded links) and
 `docs/data/modules/mNN.json` (the markdown bodies, fetched lazily per module).

@@ -4,10 +4,10 @@ import {
   content, state, isDone, isFav, notesOf, visibleTags, tagsOf, resourcesOf, globalResources,
   moduleProgress, sectionProgress, overallProgress, phaseProgress, countsByKind,
   recentlyDone, favourites, withNotes, nextUp, loadBodies, bodyOf, CUSTOM_PHASE,
-} from './store.js';
-import { renderMarkdown, enhance, stripMd } from './md.js';
-import { $, esc, pct, ringSvg, barHtml, timeAgo, fmtDate, safeUrl } from './util.js';
-import { gh } from './gist.js';
+} from './store.js?v=7';
+import { renderMarkdown, enhance, stripMd } from './md.js?v=7';
+import { $, esc, pct, ringSvg, barHtml, timeAgo, fmtDate, safeUrl } from './util.js?v=7';
+import { gh } from './gist.js?v=7';
 
 export const THEMES = [
   ['indigo', 'Indigo', '#6366f1', '#8b5cf6'],
@@ -210,7 +210,7 @@ export async function fillItemBody(card) {
 
   body.innerHTML = `
     ${spoiler ? '<div class="spoiler-shade"><div class="veil"><div><b>Solution / commentary</b><p class="muted">Attempt it first — then reveal.</p><button class="btn sm" data-act="reveal">Reveal</button></div></div>' : ''}
-    <div class="md">${renderMarkdown(md)}</div>
+    <div class="md" data-annotatable="1">${renderMarkdown(md)}</div>
     ${spoiler ? '</div>' : ''}
 
     <div class="item-tools">
@@ -227,7 +227,13 @@ export async function fillItemBody(card) {
     ${resourceList(id)}
 
     <div class="notes-wrap">
-      <div class="notes-head"><span>My notes</span><span class="muted" data-notes-status></span></div>
+      <div class="notes-head">
+        <span>My notes</span>
+        <span class="nh-right">
+          <span class="muted" data-notes-status></span>
+          <button class="btn sm" data-act="expand-notes">⤢ Expand</button>
+        </span>
+      </div>
       <textarea data-act="notes" placeholder="What clicked, what tripped you up, the one-line rule you want to remember…">${esc(notesOf(id))}</textarea>
     </div>
 

@@ -2,7 +2,7 @@
    State lives in localStorage and, when a GitHub token is connected, in a
    private Gist so it follows you across browsers. */
 
-import { debounce } from './util.js';
+import { debounce } from './util.js?v=7';
 
 const LS_STATE = 'lld.state.v1';
 const LS_PREFS = 'lld.prefs.v1';

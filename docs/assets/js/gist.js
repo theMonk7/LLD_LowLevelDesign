@@ -4,8 +4,8 @@
    and therefore a different set of progress, notes and links. The token is
    stored in this browser's localStorage and sent only to api.github.com. */
 
-import { exportState, hydrate, setRemotePush, state } from './store.js';
-import { toast } from './util.js';
+import { exportState, hydrate, setRemotePush, state } from './store.js?v=7';
+import { toast } from './util.js?v=7';
 
 const API = 'https://api.github.com';
 const FILE = 'lld-dashboard-state.json';
