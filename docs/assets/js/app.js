@@ -8,15 +8,15 @@ import {
   resourcesOf, resetProgress, resetEverything, exportState, hydrate,
   moduleProgress, sectionProgress, isDone, notesOf, answerOf,
   addCustomModule, addCustomSection, addCustomItem, updateCustom, removeCustom,
-} from './store.js?v=10';
-import * as G from './gist.js?v=10';
+} from './store.js?v=13';
+import * as G from './gist.js?v=13';
 import {
   filters, filtersActive, itemCard, fillItemBody, refreshItemBodyBlocks,
   viewDashboard, viewModule, viewBrowse, viewResources, viewSettings,
   renderSidebarProgress, renderSidebarModules, renderFilterBar, THEMES,
-} from './views.js?v=10';
-import { invalidateDiagrams, renderMarkdown, enhance } from './md.js?v=10';
-import { $, $$, esc, pct, debounce, toast, modal, confirmModal, barHtml, safeUrl } from './util.js?v=10';
+} from './views.js?v=13';
+import { invalidateDiagrams, renderMarkdown, enhance } from './md.js?v=13';
+import { $, $$, esc, pct, debounce, toast, modal, confirmModal, barHtml, safeUrl } from './util.js?v=13';
 
 /* ------------------------------------------------------------- route */
 let route = { name: 'dashboard', moduleId: null, sectionId: null, itemId: null };

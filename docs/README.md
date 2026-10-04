@@ -26,9 +26,16 @@ Two options:
 
 ## Getting around
 
-A module has up to four sections: **Theory** (the mental models from `CONCEPTS.md` first, then the
-reference from `README.md`), **Problems** where the module is a problem set, **Exercises** (with their
-answers and any leftover commentary) and the **Module Project**.
+A module has up to four sections: **Theory**, **Problems** where the module is a problem set,
+**Exercises** (with their answers and any leftover commentary) and the **Module Project**.
+
+Theory is one flat list of topics drawn from both `CONCEPTS.md` and `README.md`. Where both files
+cover the same topic — *Encapsulation*, the five SOLID letters — they share **one card**: expanding it
+gives the mental model first, then the reference with its code. Matching is conservative (the smaller
+heading's words must be almost contained in the larger), so a module whose two files take genuinely
+different cuts, like Creational Patterns, keeps them as separate cards. When a merge collapses two
+cards into one, the card records the id that disappeared and any progress, notes, tags or links saved
+against it are moved across on next load.
 
 A module opens on an overview of its sections. Click one and it fills the page, with the other
 sections becoming a sticky vertical rail on the right for switching without going back. Each section

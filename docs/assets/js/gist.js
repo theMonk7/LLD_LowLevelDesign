@@ -4,12 +4,12 @@
    and therefore a different set of progress, notes and links. The token is
    stored in this browser's localStorage and sent only to api.github.com. */
 
-import { exportState, hydrate, setRemotePush, state } from './store.js?v=10';
-import { toast } from './util.js?v=10';
+import { exportState, hydrate, setRemotePush, state } from './store.js?v=13';
+import { toast } from './util.js?v=13';
 import {
   getSessionToken, setSessionToken, clearSessionToken,
   hasVault, saveVault, openVault, clearVault, purgeLegacyToken, cryptoAvailable,
-} from './vault.js?v=10';
+} from './vault.js?v=13';
 
 const API = 'https://api.github.com';
 const FILE = 'lld-dashboard-state.json';
@@ -194,7 +194,10 @@ export async function connect(token, { gistId = null, prefer = 'auto', remember 
   const remote = await readGistBody(g);
   const localAt = state.updatedAt || 0;
   const remoteAt = remote?.updatedAt || 0;
-  const takeRemote = prefer === 'remote' ? !!remote : prefer === 'auto' && remote && remoteAt >= localAt;
+  // Strictly newer: on a tie the local copy wins, because it is the edit the
+  // person just made in this browser. A tie is common — both can be stamped in
+  // the same millisecond — and silently dropping that edit is the worse error.
+  const takeRemote = prefer === 'remote' ? !!remote : prefer === 'auto' && !!remote && remoteAt > localAt;
 
   if (takeRemote) {
     hydrate(remote);

@@ -4,10 +4,10 @@ import {
   content, state, isDone, isFav, notesOf, visibleTags, tagsOf, resourcesOf, globalResources,
   moduleProgress, sectionProgress, overallProgress, phaseProgress, countsByKind,
   recentlyDone, favourites, withNotes, nextUp, loadBodies, bodyOf, answerOf, CUSTOM_PHASE,
-} from './store.js?v=10';
-import { renderMarkdown, enhance, stripMd } from './md.js?v=10';
-import { $, esc, pct, ringSvg, barHtml, timeAgo, fmtDate, safeUrl } from './util.js?v=10';
-import { gh, vaultState } from './gist.js?v=10';
+} from './store.js?v=13';
+import { renderMarkdown, enhance, stripMd } from './md.js?v=13';
+import { $, esc, pct, ringSvg, barHtml, timeAgo, fmtDate, safeUrl } from './util.js?v=13';
+import { gh, vaultState } from './gist.js?v=13';
 
 export const THEMES = [
   ['indigo', 'Indigo', '#6366f1', '#8b5cf6'],

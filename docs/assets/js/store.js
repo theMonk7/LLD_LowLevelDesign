@@ -2,7 +2,7 @@
    State lives in localStorage and, when a GitHub token is connected, in a
    private Gist so it follows you across browsers. */
 
-import { debounce } from './util.js?v=10';
+import { debounce } from './util.js?v=13';
 
 const LS_STATE = 'lld.state.v1';
 const LS_PREFS = 'lld.prefs.v1';
@@ -108,7 +108,7 @@ export function hydrate(remote) {
   state.hiddenExtras = remote.hiddenExtras || [];
   state.custom = normCustom(remote.custom);
   if (remote.prefs) state.prefs = { ...DEFAULT_PREFS, ...remote.prefs };
-  if (content.loaded) rebuildIndex();
+  if (content.loaded) { rebuildIndex(); migrateAliases(); }
   localStorage.setItem(LS_STATE, JSON.stringify({
     v: 1, updatedAt: state.updatedAt, items: state.items,
     extraResources: state.extraResources, hiddenExtras: state.hiddenExtras,
@@ -137,10 +137,48 @@ export async function loadContent() {
   content.data = await res.json();
   content.loaded = true;
   rebuildIndex();
+  migrateAliases();
   return content.data;
 }
 
 export const CUSTOM_PHASE = 'pcustom';
+
+/**
+ * A topic whose mental model and reference were separate cards is now one card,
+ * so progress saved against the old id has to follow it. Runs after any load.
+ */
+export function migrateAliases() {
+  let changed = false;
+  for (const it of content.allItems) {
+    if (!it.aliases) continue;
+    for (const old of it.aliases) {
+      const from = state.items[old];
+      if (!from) continue;
+      const into = state.items[it.id];
+      if (!into) {
+        state.items[it.id] = from;
+      } else {
+        into.done = into.done || from.done;
+        into.doneAt = into.doneAt || from.doneAt;
+        into.fav = into.fav || from.fav;
+        if (from.notes && from.notes.trim()) {
+          into.notes = into.notes && into.notes.trim() ? `${into.notes}\n\n${from.notes}` : from.notes;
+        }
+        into.tags = [...new Set([...(into.tags || []), ...(from.tags || [])])];
+        into.res = into.res || { add: [], hide: [], edit: {} };
+        if (from.res) {
+          into.res.add = [...(into.res.add || []), ...(from.res.add || [])];
+          into.res.hide = [...new Set([...(into.res.hide || []), ...(from.res.hide || [])])];
+          into.res.edit = { ...(from.res.edit || {}), ...(into.res.edit || {}) };
+        }
+      }
+      delete state.items[old];
+      changed = true;
+    }
+  }
+  if (changed) persist({ remote: false });
+  return changed;
+}
 
 /** Fold the user's own modules, sections and topics into the generated set. */
 export function rebuildIndex() {

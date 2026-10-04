@@ -122,10 +122,77 @@ const codesIn = (title) =>
 
 const moduleAnswers = new Map();
 
-/** Mental models and the module reference, as one section in reading order. */
+/* Words that say nothing about which topic a heading is about. */
+const NOISE = new Set([
+  'the', 'a', 'an', 'and', 'or', 'of', 'to', 'in', 'on', 'for', 'is', 'it', 'its', 'as', 'at', 'by',
+  'that', 'this', 'with', 'from', 'about', 'into', 'over', 'not', 'but', 'you', 'your', 'we', 'i',
+  'what', 'why', 'how', 'when', 'who', 'which', 'where', 'all', 'one', 'two', 'most', 'more', 'than',
+  'vs', 'versus', 'swift', 'swifts', 'principle', 'principles', 'pattern', 'patterns', 'module',
+  's', 't', 're', 'll', 'be', 'are', 'was', 'does', 'do', 'can', 'they', 'them', 'their', 'really',
+]);
+
+const topicWords = (title) => new Set(
+  plainText(title).toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').split(/[\s-]+/)
+    .filter((w) => w.length > 2 && !NOISE.has(w)),
+);
+
+/**
+ * A concept heading and a reference heading that are about the same topic become
+ * one card. Matching is deliberately strict: the smaller word set has to be
+ * almost contained in the larger, so "Encapsulation is not 'use private'" pairs
+ * with "Encapsulation", while "Building versus constructing" never pairs with
+ * "Builder".
+ */
+function pairTopics(conceptItems, theoryItems) {
+  const pairs = [];
+  for (const c of conceptItems) {
+    const cw = topicWords(c.title);
+    if (!cw.size) continue;
+    for (const t of theoryItems) {
+      const tw = topicWords(t.title);
+      if (!tw.size) continue;
+      let shared = 0;
+      for (const w of cw) if (tw.has(w)) shared += 1;
+      if (!shared) continue;
+      const score = shared / Math.min(cw.size, tw.size);
+      if (score >= 0.6) pairs.push({ c, t, score, shared });
+    }
+  }
+  pairs.sort((a, b) => b.score - a.score || b.shared - a.shared);
+
+  const byConcept = new Map();
+  const usedTheory = new Set();
+  for (const p of pairs) {
+    if (byConcept.has(p.c.id) || usedTheory.has(p.t.id)) continue;
+    byConcept.set(p.c.id, p.t);
+    usedTheory.add(p.t.id);
+  }
+  return byConcept;
+}
+
+function mergeInto(theoryItem, conceptItem) {
+  theoryItem.body = `## Mental model\n\n${conceptItem.body}\n\n---\n\n## Reference\n\n${theoryItem.body}`;
+  theoryItem.tags = [...new Set([...conceptItem.tags, ...theoryItem.tags])];
+  theoryItem.trackable = theoryItem.trackable || conceptItem.trackable;
+  // the concept card's id disappears; keep it so saved progress can follow
+  theoryItem.aliases = [...(theoryItem.aliases || []), conceptItem.id];
+}
+
+/**
+ * Mental models and the module reference, as one section. Topics covered by both
+ * files share a single card — mental model first, then the reference.
+ */
 function pushTheory(sections, conceptItems, theoryItems, files) {
-  const items = [...conceptItems, ...theoryItems];
+  const paired = pairTopics(conceptItems, theoryItems);
+  for (const c of conceptItems) {
+    const t = paired.get(c.id);
+    if (t) mergeInto(t, c);
+  }
+  const conceptOnly = conceptItems.filter((c) => !paired.has(c.id));
+  const items = [...conceptOnly, ...theoryItems];
   if (!items.length) return;
+  for (const it of items) it.group = null;      // one flat list of topics
+
   const source = [files.concepts ? 'CONCEPTS.md' : null, files.readme ? 'README.md' : null]
     .filter(Boolean).join(' · ');
   sections.push({ id: 'theory', title: 'Theory', kind: 'theory', source, items });
