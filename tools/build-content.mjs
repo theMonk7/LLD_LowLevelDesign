@@ -114,6 +114,14 @@ function detectTags(title, body, extra = []) {
 
 /* ------------------------------------------------------------ item builder */
 
+/** `E1`, `SOLO 1`, `Mock 3` → a stable code shared by an exercise and its solution. */
+const exerciseCode = (raw) => String(raw).toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+const codesIn = (title) =>
+  [...String(title).matchAll(/\b(E\s*\d+|SOLO\s*\d+|MOCK\s*\d+)\b/gi)].map((m) => exerciseCode(m[1]));
+
+const moduleAnswers = new Map();
+
 let counter = 0;
 function makeItem({ moduleId, sectionId, title, body, kind, group, trackable = true, difficulty = null, tags = [] }) {
   counter += 1;
@@ -243,14 +251,16 @@ function buildModule(dirName) {
       const m = b.title.match(/^(E|SOLO|Mock|Exercise)\s*(\d+)\s*[—–-]?\s*(.*)$/i);
       const isTask = !!m;
       const label = m ? `${m[1].toUpperCase() === 'E' ? `E${m[2]}` : `${m[1]} ${m[2]}`} — ${m[3] || 'Task'}` : b.title;
-      items.push(makeItem({
+      const codeItem = makeItem({
         moduleId, sectionId: 'exercises', title: plainText(label).replace(/\s*⭐.*$/, '').trim(), body: b.body,
         kind: isTask ? 'exercise' : 'note',
         group: isTask ? (/^SOLO/i.test(b.title) ? 'Solo problems' : /^Mock/i.test(b.title) ? 'Mock interviews' : 'Graded exercises') : 'Extras',
         trackable: isTask,
         difficulty,
         tags: [/⭐/.test(b.title) ? 'Must-know' : null].filter(Boolean),
-      }));
+      });
+      if (m) codeItem.code = exerciseCode(`${m[1]}${m[2]}`);
+      items.push(codeItem);
     }
     if (items.length) sections.push({ id: 'exercises', title: 'Exercises', kind: 'exercise', source: 'EXERCISES.md', items });
   }
@@ -271,21 +281,41 @@ function buildModule(dirName) {
     });
   }
 
-  /* 6 — Solutions (SOLUTIONS.md) — reference only, never counted in progress */
+  /* 6 — Solutions (SOLUTIONS.md). A block that names an exercise is attached to
+     that exercise and revealed on demand; anything left over stays a section. */
+  const answers = {};
   if (files.solutions) {
     const { body } = splitTitle(files.solutions);
     const { preamble, blocks } = sectionize(body, [2]);
+    const exercises = (sections.find((x) => x.id === 'exercises') || { items: [] }).items;
+    const leftovers = [];
+
+    for (const b of blocks) {
+      const codes = codesIn(b.title);
+      const targets = codes.length ? exercises.filter((it) => it.code && codes.includes(it.code)) : [];
+      if (targets.length) {
+        for (const t of targets) {
+          answers[t.id] = answers[t.id] ? `${answers[t.id]}\n\n${b.body}` : b.body;
+          t.hasAnswer = true;
+        }
+      } else {
+        leftovers.push(b);
+      }
+    }
+
     const items = [];
     if (preamble) {
       items.push(makeItem({ moduleId, sectionId: 'solutions', title: 'Before you read these', body: preamble, kind: 'solution', trackable: false }));
     }
-    for (const b of blocks) {
+    for (const b of leftovers) {
       items.push(makeItem({ moduleId, sectionId: 'solutions', title: cleanTitle(b.title), body: b.body, kind: 'solution', trackable: false }));
     }
     if (items.length) {
       sections.push({ id: 'solutions', title: 'Solutions & Commentary', kind: 'solution', source: 'SOLUTIONS.md', spoiler: true, items });
     }
   }
+
+  moduleAnswers.set(moduleId, answers);
 
   const allItems = sections.flatMap((s) => s.items);
   return {
@@ -423,7 +453,9 @@ for (const m of modules) {
       delete it.body;
     }
   }
-  fs.writeFileSync(path.join(BODY_DIR, `${m.id}.json`), JSON.stringify({ id: m.id, bodies }));
+  fs.writeFileSync(path.join(BODY_DIR, `${m.id}.json`), JSON.stringify({
+    id: m.id, bodies, answers: moduleAnswers.get(m.id) || {},
+  }));
 }
 
 const out = {
@@ -438,6 +470,7 @@ const out = {
     items: modules.reduce((a, m) => a + m.totals.items, 0),
     trackable: modules.reduce((a, m) => a + m.totals.trackable, 0),
     seededLinks: modules.reduce((a, m) => a + m.sections.reduce((b, s) => b + s.items.reduce((c, i) => c + i.resources.length, 0), 0), 0),
+    answers: [...moduleAnswers.values()].reduce((a, x) => a + Object.keys(x).length, 0),
   },
 };
 
@@ -447,6 +480,6 @@ const kb = (fs.statSync(OUT).size / 1024).toFixed(0);
 const bodyKb = (fs.readdirSync(BODY_DIR).reduce((a, f) => a + fs.statSync(path.join(BODY_DIR, f)).size, 0) / 1024).toFixed(0);
 
 console.log(`content.json  ${kb} KB  (index)   modules/*.json  ${bodyKb} KB (bodies)`);
-console.log(`modules ${out.stats.modules} | items ${out.stats.items} | trackable ${out.stats.trackable} | seeded links ${out.stats.seededLinks}`);
+console.log(`modules ${out.stats.modules} | items ${out.stats.items} | trackable ${out.stats.trackable} | seeded links ${out.stats.seededLinks} | answers ${out.stats.answers}`);
 console.log(`unmatched sheet entries: ${unmatched.length}`);
 for (const u of unmatched) console.log(`  - [${u.reason}] ${u.sectionName} / ${u.e.t}`);

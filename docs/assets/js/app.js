@@ -6,17 +6,17 @@ import {
   addResource, updateResource, removeResource,
   addGlobalResource, updateGlobalResource, removeGlobalResource, globalResources,
   resourcesOf, resetProgress, resetEverything, exportState, hydrate,
-  moduleProgress, sectionProgress, isDone, notesOf,
+  moduleProgress, sectionProgress, isDone, notesOf, answerOf,
   addCustomModule, addCustomSection, addCustomItem, updateCustom, removeCustom,
-} from './store.js?v=7';
-import * as G from './gist.js?v=7';
+} from './store.js?v=9';
+import * as G from './gist.js?v=9';
 import {
   filters, filtersActive, itemCard, fillItemBody, refreshItemBodyBlocks,
   viewDashboard, viewModule, viewBrowse, viewResources, viewSettings,
   renderSidebarProgress, renderSidebarModules, renderFilterBar, THEMES,
-} from './views.js?v=7';
-import { invalidateDiagrams, renderMarkdown, enhance } from './md.js?v=7';
-import { $, $$, esc, pct, debounce, toast, modal, confirmModal, barHtml, safeUrl } from './util.js?v=7';
+} from './views.js?v=9';
+import { invalidateDiagrams, renderMarkdown, enhance } from './md.js?v=9';
+import { $, $$, esc, pct, debounce, toast, modal, confirmModal, barHtml, safeUrl } from './util.js?v=9';
 
 /* ------------------------------------------------------------- route */
 let route = { name: 'dashboard', moduleId: null, sectionId: null, itemId: null };
@@ -479,7 +479,8 @@ function renderSyncPill() {
       G.gh.status === 'synced' ? `@${(G.gh.user && G.gh.user.login) || 'synced'}`
         : G.gh.status === 'syncing' ? 'Syncing'
           : G.gh.status === 'error' ? 'Error'
-            : 'Local';
+            : G.gh.status === 'locked' ? 'Locked'
+              : 'Local';
     const slot = $('.sync-ic', chip);
     const url = G.gh.user && G.gh.user.avatar;
     const img = slot.querySelector('img');
@@ -513,13 +514,14 @@ function renderSyncPill() {
     G.gh.status === 'synced' ? `@${(G.gh.user && G.gh.user.login) || 'synced'}`
       : G.gh.status === 'syncing' ? 'Syncing…'
         : G.gh.status === 'error' ? 'Sync error'
-          : 'Local only';
+          : G.gh.status === 'locked' ? 'Locked'
+            : 'Local only';
   pill.title = G.gh.message;
 }
 
-async function connectFlow(token, gistId) {
+async function connectFlow(token, gistId, remember = null) {
   try {
-    await G.connect(token, { gistId: gistId || null });
+    await G.connect(token, { gistId: gistId || null, remember });
     render();
   } catch (e) {
     toast(G.errorText(e), 'err');
@@ -582,6 +584,24 @@ function handleItemAction(act, el, e, id) {
   }
   if (act === 'del-tag') { e.preventDefault(); e.stopPropagation(); removeTag(id, el.dataset.tag); return true; }
   if (act === 'expand-notes') { e.preventDefault(); e.stopPropagation(); openNotesModal(id); return true; }
+  if (act === 'show-answer') {
+    e.preventDefault(); e.stopPropagation();
+    const wrap = el.closest('.answer-wrap');
+    const pane = $('.answer-body', wrap);
+    if (!pane.hidden) {                       // toggle back to hidden
+      pane.hidden = true;
+      el.textContent = '🔑 Show answer';
+      return true;
+    }
+    if (pane.dataset.filled !== '1') {
+      pane.innerHTML = renderMarkdown(answerOf(id) || '_No worked solution for this one._');
+      pane.dataset.filled = '1';
+      enhance(pane);
+    }
+    pane.hidden = false;
+    el.textContent = '🔑 Hide answer';
+    return true;
+  }
   if (act === 'add-res') {
     e.preventDefault(); e.stopPropagation();
     resourceModal({ title: 'Add link', onSubmit: (d) => addResource(id, d) });
@@ -599,6 +619,14 @@ function handleItemAction(act, el, e, id) {
 
 document.addEventListener('click', async (e) => {
   if (!e.target || e.target.nodeType !== 1) return;
+
+  // a link or button sitting inside a clickable row handles its own click
+  const stop = e.target.closest('[data-stop="1"]');
+  if (stop) {
+    e.stopPropagation();
+    if (stop.tagName === 'A') return;
+  }
+
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const act = el.dataset.act;
@@ -627,7 +655,14 @@ document.addEventListener('click', async (e) => {
     return;
   }
   if (act === 'add-section-res') {
+    e.preventDefault();
     resourceModal({ title: 'Add link to this section', onSubmit: (d) => addResource(el.dataset.bucket, d) });
+    return;
+  }
+  if (act === 'add-res-to') {
+    e.preventDefault(); e.stopPropagation();
+    const owner = el.dataset.id;
+    resourceModal({ title: 'Add link', onSubmit: (d) => addResource(owner, d) });
     return;
   }
 
@@ -735,7 +770,26 @@ document.addEventListener('click', async (e) => {
   if (act === 'gist-connect') {
     const token = $('#tok') && $('#tok').value.trim();
     if (!token) { toast('Paste a token first', 'err'); return; }
-    await connectFlow(token, $('#gid') && $('#gid').value.trim());
+    const wantRemember = $('#remember') && $('#remember').checked;
+    const pass = $('#pass') ? $('#pass').value : '';
+    if (wantRemember && pass.length < 8) { toast('Use a passphrase of at least 8 characters', 'err'); return; }
+    await connectFlow(token, $('#gid') && $('#gid').value.trim(), wantRemember ? pass : null);
+    return;
+  }
+  if (act === 'gist-unlock') {
+    const pass = $('#pass') ? $('#pass').value : '';
+    if (!pass) { toast('Enter your passphrase', 'err'); return; }
+    try { await G.unlock(pass); render(); }
+    catch (err) { toast(err.message || G.errorText(err), 'err'); }
+    return;
+  }
+  if (act === 'gist-forget') {
+    confirmModal({
+      title: 'Forget the saved token?',
+      body: 'The encrypted token is deleted from this device. Your Gist and its data stay on GitHub — paste the token again to reconnect.',
+      confirmLabel: 'Forget it', danger: true,
+      onConfirm: () => { G.disconnect({ forgetDevice: true }); render(); toast('Saved token deleted', 'ok'); },
+    });
     return;
   }
   if (act === 'gist-pull') { await G.pull(); render(); return; }
@@ -743,9 +797,9 @@ document.addEventListener('click', async (e) => {
   if (act === 'gist-disconnect') {
     confirmModal({
       title: 'Disconnect GitHub?',
-      body: 'The token is removed from this browser. Your Gist and its data stay on GitHub — reconnect with the same token to pick up where you left off.',
+      body: 'The token is removed from this browser, including any copy saved behind a passphrase. Your Gist and its data stay on GitHub — reconnect with the same token to pick up where you left off.',
       confirmLabel: 'Disconnect', danger: true,
-      onConfirm: () => { G.disconnect(); render(); },
+      onConfirm: () => { G.disconnect({ forgetDevice: true }); render(); },
     });
     return;
   }
@@ -787,6 +841,14 @@ function syncFilterChrome() {
   badge.hidden = n === 0;
   badge.textContent = String(n);
 }
+
+/* the resources page remembers what you folded away */
+document.addEventListener('toggle', (e) => {
+  const d = e.target;
+  if (!d || d.nodeType !== 1 || !d.dataset || !d.dataset.reskey) return;
+  const next = { ...state.prefs.resClosed, [d.dataset.reskey]: !d.open };
+  setPref('resClosed', next);
+}, true);
 
 /* notes typing */
 document.addEventListener('input', (e) => {

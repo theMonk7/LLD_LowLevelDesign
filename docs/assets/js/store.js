@@ -2,7 +2,7 @@
    State lives in localStorage and, when a GitHub token is connected, in a
    private Gist so it follows you across browsers. */
 
-import { debounce } from './util.js?v=7';
+import { debounce } from './util.js?v=9';
 
 const LS_STATE = 'lld.state.v1';
 const LS_PREFS = 'lld.prefs.v1';
@@ -11,6 +11,7 @@ export const DEFAULT_PREFS = {
   theme: 'indigo',
   mode: 'dark',
   collapsed: {},     // sectionKey -> true when collapsed
+  resClosed: {},     // resources page: key -> true when collapsed
   revealSolutions: false,
 };
 
@@ -25,6 +26,7 @@ export const content = {
   allItems: [],
   builtinTags: [],
   bodies: new Map(),   // moduleId -> { itemId: markdown }
+  answers: new Map(),  // moduleId -> { itemId: markdown }  (exercise solutions)
 };
 
 export const state = {
@@ -251,7 +253,16 @@ export async function loadBodies(moduleId) {
   if (!res.ok) throw new Error(`${moduleId}.json ${res.status}`);
   const json = await res.json();
   content.bodies.set(moduleId, json.bodies);
+  content.answers.set(moduleId, json.answers || {});
   return json.bodies;
+}
+
+/** The worked solution for an exercise, once its module file is loaded. */
+export function answerOf(itemId) {
+  const m = content.itemModule.get(itemId);
+  if (!m) return null;
+  const a = content.answers.get(m.id);
+  return a ? a[itemId] ?? null : null;
 }
 
 export function bodyOf(itemId) {

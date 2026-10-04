@@ -3,11 +3,11 @@
 import {
   content, state, isDone, isFav, notesOf, visibleTags, tagsOf, resourcesOf, globalResources,
   moduleProgress, sectionProgress, overallProgress, phaseProgress, countsByKind,
-  recentlyDone, favourites, withNotes, nextUp, loadBodies, bodyOf, CUSTOM_PHASE,
-} from './store.js?v=7';
-import { renderMarkdown, enhance, stripMd } from './md.js?v=7';
-import { $, esc, pct, ringSvg, barHtml, timeAgo, fmtDate, safeUrl } from './util.js?v=7';
-import { gh } from './gist.js?v=7';
+  recentlyDone, favourites, withNotes, nextUp, loadBodies, bodyOf, answerOf, CUSTOM_PHASE,
+} from './store.js?v=9';
+import { renderMarkdown, enhance, stripMd } from './md.js?v=9';
+import { $, esc, pct, ringSvg, barHtml, timeAgo, fmtDate, safeUrl } from './util.js?v=9';
+import { gh, vaultState } from './gist.js?v=9';
 
 export const THEMES = [
   ['indigo', 'Indigo', '#6366f1', '#8b5cf6'],
@@ -107,15 +107,22 @@ export function sectionLinks(mod, sec) {
   return [...own, ...fromItems];
 }
 
+const RES_WORD = { read: 'Read', watch: 'Watch', practice: 'Practice', doc: 'Open' };
+
+/** One clickable chip per kind, opening the first link of that kind. */
 function linkCountChips(links) {
-  const read = links.filter((x) => x.r.type === 'read' || x.r.type === 'doc').length;
-  const watch = links.filter((x) => x.r.type === 'watch').length;
-  const practice = links.filter((x) => x.r.type === 'practice').length;
-  return [
-    read ? `<span class="tag link-chip">📖 ${read}</span>` : '',
-    watch ? `<span class="tag link-chip">▶ ${watch}</span>` : '',
-    practice ? `<span class="tag link-chip">⌨ ${practice}</span>` : '',
-  ].join('');
+  const by = { read: [], watch: [], practice: [] };
+  for (const x of links) {
+    const k = x.r.type === 'doc' ? 'read' : x.r.type;
+    if (by[k]) by[k].push(x.r);
+  }
+  return Object.entries(by).filter(([, list]) => list.length).map(([kind, list]) => {
+    const first = safeUrl(list[0].url) || '#';
+    const label = list.length > 1 ? `${RES_WORD[kind]} ${list.length}` : RES_WORD[kind];
+    return `<a class="tag link-chip" href="${esc(first)}" target="_blank" rel="noopener noreferrer"
+      title="${esc(list.map((r) => r.label || r.title || '').join(' · '))}"
+      data-stop="1">${RES_ICON[kind]} ${esc(label)}</a>`;
+  }).join('');
 }
 
 function ownedLinkRow(r, ownerId, label) {
@@ -172,7 +179,7 @@ export function itemCard(item, { showModule = false, open = false } = {}) {
           ${showModule && mod ? `<span class="tag clickable" data-act="goto-module" data-mod="${esc(mod.id)}">M${esc(mod.num)} · ${esc(mod.title)}</span>` : ''}
           ${!showModule && sec?.spoiler ? '<span class="tag">spoiler</span>' : ''}
           ${links.map((r) => `<a class="tag link-chip" href="${esc(safeUrl(r.url) || '#')}" target="_blank" rel="noopener noreferrer"
-              title="${esc(r.label || r.type)}">${RES_ICON[r.type] || '🔗'}</a>`).join('')}
+              title="${esc(r.label || r.type)}" data-stop="1">${RES_ICON[r.type] || '🔗'} ${esc(RES_WORD[r.type] || 'Open')}</a>`).join('')}
           ${visibleTags(item.id).slice(0, showModule ? 2 : 5).map(({ t }) =>
             `<span class="tag clickable" data-act="filter-tag" data-tag="${esc(t)}">${esc(t)}</span>`).join('')}
         </div>
@@ -225,6 +232,12 @@ export async function fillItemBody(card) {
       <button class="btn sm" data-act="add-res">+ Add link</button>
     </h4>
     ${resourceList(id)}
+
+    ${item && item.hasAnswer ? `
+    <div class="answer-wrap" data-answer-for="${esc(id)}">
+      <button class="btn answer-btn" data-act="show-answer">🔑 Show answer</button>
+      <div class="answer-body" hidden></div>
+    </div>` : ''}
 
     <div class="notes-wrap">
       <div class="notes-head">
@@ -432,12 +445,12 @@ function sectionOverview(mod) {
     const links = sectionLinks(mod, sec);
     const visible = anyFilter ? sec.items.filter(matches) : sec.items;
     if (anyFilter && !visible.length) return '';
-    return `<a class="card sec-card" href="#/m/${mod.id}/${esc(sec.id)}" data-section="${esc(sec.id)}">
-      <div class="sc-top">
+    return `<div class="card sec-card" data-section="${esc(sec.id)}">
+      <a class="sc-top" href="#/m/${mod.id}/${esc(sec.id)}">
         <span class="sc-icon">${KIND_META[sec.kind] ? KIND_META[sec.kind].icon : '▤'}</span>
         <span class="sc-title">${esc(sec.title)}</span>
         ${sec.source && sec.source !== 'mine' ? `<span class="src">${esc(sec.source)}</span>` : '<span class="tag accent">mine</span>'}
-      </div>
+      </a>
       <div class="sc-meta">
         <span>${visible.length} item${visible.length === 1 ? '' : 's'}</span>
         ${linkCountChips(links)}
@@ -446,7 +459,7 @@ function sectionOverview(mod) {
         ${barHtml(sp.total ? pct(sp.done, sp.total) : 0, sp.total && sp.done === sp.total ? 'ok' : '')}
         <span class="pct">${sp.total ? `${sp.done}/${sp.total}` : 'reference'}</span>
       </div>
-    </a>`;
+    </div>`;
   }).join('');
 
   return `<div class="grid secs">${cards || '<div class="empty-state"><div class="big">🔍</div><p>No section matches the current filters.</p></div>'}</div>
@@ -544,74 +557,110 @@ export function viewBrowse() {
 }
 
 /* --------------------------------------------------------- resources */
+
+/** One row per topic, carrying every link that topic has. */
+function topicRow(ownerId, title, href, links) {
+  return `<div class="topic-row" data-owner="${esc(ownerId)}">
+    <span class="tr-title">${href ? `<a href="${esc(href)}">${esc(title)}</a>` : esc(title)}</span>
+    <span class="tr-links">
+      ${links.map((r) => `<a class="tag link-chip" href="${esc(safeUrl(r.url) || '#')}" target="_blank" rel="noopener noreferrer"
+          title="${esc(r.label || r.title || r.type)}">${RES_ICON[r.type] || '🔗'} ${esc(RES_WORD[r.type] || 'Open')}</a>`).join('')}
+    </span>
+    <span class="tr-act">
+      ${links.map((r) => `<button class="ibtn" data-act="edit-res-std" data-id="${esc(ownerId)}" data-res="${esc(r.id)}"
+          title="Edit ${esc(r.label || r.type)}">✎</button>`).join('')}
+      ${links.map((r) => `<button class="ibtn" data-act="del-res-std" data-id="${esc(ownerId)}" data-res="${esc(r.id)}"
+          title="Remove ${esc(r.label || r.type)}">✕</button>`).join('')}
+      <button class="ibtn" data-act="add-res-to" data-id="${esc(ownerId)}" title="Add a link here">+</button>
+    </span>
+  </div>`;
+}
+
+/** Collapse state for the resources page lives in prefs, so it survives a reload. */
+const resOpen = (key) => state.prefs.resClosed?.[key] !== true;
+
 export function viewResources() {
   const q = filters.q.toLowerCase();
-  const hit = (s) => !q || String(s).toLowerCase().includes(q);
+  const hit = (s2) => !q || String(s2).toLowerCase().includes(q);
 
   const blocks = content.modules.map((m) => {
+    let moduleCount = 0;
     const secRows = m.sections.map((sec) => {
-      const links = sectionLinks(m, sec)
+      const all = sectionLinks(m, sec)
         .filter(({ r, item }) => hit(`${r.label || r.title} ${r.url} ${item ? item.title : ''} ${sec.title} ${m.title}`));
-      if (!links.length) return '';
+      if (!all.length) return '';
+      moduleCount += all.length;
+
+      // group every link under the topic it belongs to, one bar per topic
       const bucket = sectionBucket(m.id, sec.id);
-      return `<div class="res-sec">
-        <div class="res-sec-head">
-          <a href="#/m/${m.id}/${esc(sec.id)}">${esc(sec.title)}</a>
-          <span class="muted">${links.length}</span>
+      const byTopic = new Map();
+      for (const { r, item } of all) {
+        const key = item ? item.id : bucket;
+        if (!byTopic.has(key)) byTopic.set(key, { item, links: [] });
+        byTopic.get(key).links.push(r);
+      }
+
+      const secKey = `${m.id}:${sec.id}`;
+      return `<details class="res-sec"${resOpen(secKey) ? ' open' : ''} data-reskey="${esc(secKey)}">
+        <summary class="res-sec-head">
+          <a href="#/m/${m.id}/${esc(sec.id)}" data-stop="1">${esc(sec.title)}</a>
+          <span class="muted">${byTopic.size} topic${byTopic.size === 1 ? '' : 's'} · ${all.length} link${all.length === 1 ? '' : 's'}</span>
           <span class="spacer"></span>
-          <button class="btn sm" data-act="add-section-res" data-bucket="${esc(bucket)}">+ Add</button>
+          <button class="btn sm" data-act="add-section-res" data-bucket="${esc(bucket)}" data-stop="1">+ Add</button>
+        </summary>
+        <div class="topic-rows">
+          ${[...byTopic.entries()].map(([key, { item, links }]) => topicRow(
+            key,
+            item ? item.title : `${sec.title} (whole section)`,
+            item ? `#/m/${m.id}/${sec.id}/${encodeURIComponent(item.id)}` : null,
+            links,
+          )).join('')}
         </div>
-        <div class="res-list">${links.map(({ r, item }) => ownedLinkRow(
-          r,
-          item ? item.id : bucket,
-          item
-            ? `<span class="res-owner" data-act="goto-item" data-target="${esc(item.id)}" role="button" tabindex="0">${esc(item.title)}</span>`
-            : '<span class="res-owner muted">whole section</span>',
-        )).join('')}</div>
-      </div>`;
+      </details>`;
     }).join('');
     if (!secRows) return '';
-    const count = m.sections.reduce((a, s) => a + sectionLinks(m, s).length, 0);
-    return `<section class="card res-mod">
-      <div class="res-mod-head">
+
+    const modKey = m.id;
+    return `<details class="card res-mod"${resOpen(modKey) ? ' open' : ''} data-reskey="${esc(modKey)}">
+      <summary class="res-mod-head">
         <span class="mc-num">M${esc(m.num)}</span>
-        <a href="#/m/${m.id}"><b>${esc(m.title)}</b></a>
-        <span class="muted">${count} link${count === 1 ? '' : 's'}</span>
-      </div>
+        <b>${esc(m.title)}</b>
+        <span class="muted">${moduleCount} link${moduleCount === 1 ? '' : 's'}</span>
+      </summary>
       ${secRows}
-    </section>`;
+    </details>`;
   }).join('');
 
   const globals = globalResources().filter((r) => hit(`${r.title || r.label} ${r.url}`));
-  const total = content.modules.reduce((a, m) => a + m.sections.reduce((b, s) => b + sectionLinks(m, s).length, 0), 0) + globals.length;
+  const total = content.modules.reduce((a, m) => a + m.sections.reduce((b, s2) => b + sectionLinks(m, s2).length, 0), 0) + globals.length;
 
   return `
   <div class="page-head">
     <div class="eyebrow">Library</div>
     <h1>Reading &amp; videos <span class="muted">· ${total} links</span></h1>
     <p class="sub">Seeded from the <a href="https://krucible.netlify.app/" target="_blank" rel="noopener noreferrer">Krucible LLD sheet</a>
-    and filed under the module and section each link belongs to — the same links show up on those sections in place.
-    Add your own to a section, an item, or to the general list.</p>
+    and filed under the module and section each link belongs to — one row per topic, with its reading and video
+    on the same row. The same links show up on those sections in place.</p>
   </div>
 
-  <section class="card res-mod">
-    <div class="res-mod-head">
+  <details class="card res-mod"${resOpen('general') ? ' open' : ''} data-reskey="general">
+    <summary class="res-mod-head">
       <span class="mc-num">GEN</span><b>General resources</b>
       <span class="muted">${globals.length}</span>
       <span class="spacer"></span>
-      <button class="btn sm" data-act="add-global-res">+ Add</button>
-    </div>
-    <div class="res-list">
-      ${globals.map((r) => `<div class="res">
-        <span class="rtype">${RES_ICON[r.type] || '🔗'}</span>
-        <a class="rlabel" href="${esc(safeUrl(r.url) || '#')}" target="_blank" rel="noopener noreferrer">${esc(r.title || r.label)}</a>
-        <span class="rurl">${esc((safeUrl(r.url) || '').replace(/^https?:\/\//, ''))}</span>
-        <span class="ract">
+      <button class="btn sm" data-act="add-global-res" data-stop="1">+ Add</button>
+    </summary>
+    <div class="topic-rows">
+      ${globals.map((r) => `<div class="topic-row">
+        <span class="tr-title">${esc(r.title || r.label)}</span>
+        <span class="tr-links"><a class="tag link-chip" href="${esc(safeUrl(r.url) || '#')}" target="_blank" rel="noopener noreferrer">${RES_ICON[r.type] || '🔗'} ${esc(RES_WORD[r.type] || 'Open')}</a></span>
+        <span class="tr-act">
           <button class="ibtn" data-act="edit-global-res" data-res="${esc(r.id)}" title="Edit">✎</button>
           <button class="ibtn" data-act="del-global-res" data-res="${esc(r.id)}" title="Remove">✕</button>
-        </span></div>`).join('') || '<p class="empty-note">No general links.</p>'}
+        </span>
+      </div>`).join('') || '<p class="empty-note">No general links.</p>'}
     </div>
-  </section>
+  </details>
 
   ${blocks || '<p class="empty-note" style="margin-top:14px">No links match that search.</p>'}`;
 }
@@ -620,6 +669,8 @@ export function viewResources() {
 export function viewSettings() {
   const o = overallProgress();
   const connected = !!gh.token;
+  const vault = vaultState();
+  const locked = !connected && gh.status === 'locked';
   const c = state.custom;
   return `
   <div class="page-head">
@@ -633,9 +684,13 @@ export function viewSettings() {
     <p class="sub" style="margin-top:8px">Your token is your account. A different token means a different private Gist — and therefore a separate set of progress, notes, tags, links and custom modules.</p>
 
     <div class="warn-box" style="margin-top:12px">
-      <b>Security:</b> the token is kept in this browser's <code>localStorage</code> and sent only to <code>api.github.com</code>.
-      Use a token scoped to <b>gist only</b> (classic: <code>gist</code>; fine-grained: Account permissions → Gists → Read&nbsp;and&nbsp;write).
-      Anyone with access to this browser profile can read it. Revoke it in GitHub settings if the machine is shared.
+      <b>Where the token is kept.</b> No web page can hide a secret from its own JavaScript, so while the
+      dashboard is open and unlocked, code running on this page can use the token. What this does avoid is a
+      clear-text token sitting on disk: by default it lives in <code>sessionStorage</code> for this tab only and
+      is gone when you close it. Tick <i>Remember on this device</i> and it is stored as AES-GCM ciphertext
+      under a key derived from your passphrase (PBKDF2-SHA256, 310k iterations); the passphrase is never saved.
+      Scope the token to <b>gist only</b> (classic: <code>gist</code>; fine-grained: Account permissions →
+      Gists → Read&nbsp;and&nbsp;write) and revoke it on GitHub if a machine is lost.
     </div>
 
     ${connected ? `
@@ -643,14 +698,31 @@ export function viewSettings() {
         <button class="btn" data-act="gist-pull">Pull from Gist</button>
         <button class="btn" data-act="gist-push">Push now</button>
         <a class="btn" href="https://gist.github.com/${esc(gh.gistId || '')}" target="_blank" rel="noopener noreferrer">Open Gist</a>
-        <button class="btn danger" data-act="gist-disconnect">Disconnect &amp; forget token</button>
+        <button class="btn danger" data-act="gist-disconnect">Disconnect</button>
       </div>
-      <p class="muted" style="margin-top:10px">Gist <code>${esc(gh.gistId || '—')}</code> · last sync ${esc(timeAgo(gh.lastSync))} · ${esc(gh.message)}</p>
+      <p class="muted" style="margin-top:10px">
+        Gist <code>${esc(gh.gistId || '—')}</code> · last sync ${esc(timeAgo(gh.lastSync))} ·
+        ${vault.saved ? 'remembered on this device (encrypted)' : 'this tab only'}
+      </p>
+    ` : locked ? `
+      <p class="sub" style="margin-top:12px">A token is saved on this device, encrypted. Enter the passphrase to unlock it.</p>
+      <div class="field"><label for="pass">Passphrase</label>
+        <input id="pass" type="password" placeholder="your passphrase" autocomplete="current-password" /></div>
+      <div class="row">
+        <button class="btn primary" data-act="gist-unlock">Unlock &amp; sync</button>
+        <button class="btn danger" data-act="gist-forget">Forget the saved token</button>
+      </div>
     ` : `
       <div class="field"><label for="tok">GitHub personal access token</label>
         <input id="tok" type="password" placeholder="ghp_… or github_pat_…" autocomplete="off" /></div>
       <div class="field"><label for="gid">Existing Gist ID (optional — leave blank to find or create one)</label>
         <input id="gid" type="text" placeholder="e.g. 8f14e45fceea167a5a36dedd4bea2543" autocomplete="off" /></div>
+      <div class="field">
+        <label><input type="checkbox" id="remember" style="width:auto;margin-right:7px" ${vault.crypto ? '' : 'disabled'} />
+          Remember on this device, encrypted with a passphrase</label>
+        <input id="pass" type="password" placeholder="Passphrase (8+ characters) — only if remembering" autocomplete="new-password" />
+        ${vault.crypto ? '' : '<p class="muted">Web Crypto is unavailable here, so remembering is off. Serve over https or localhost.</p>'}
+      </div>
       <div class="row">
         <button class="btn primary" data-act="gist-connect">Connect</button>
         <a class="btn" href="https://github.com/settings/tokens/new?scopes=gist&description=LLD%20Dashboard" target="_blank" rel="noopener noreferrer">Create a token →</a>

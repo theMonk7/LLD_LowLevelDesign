@@ -4,20 +4,23 @@
    and therefore a different set of progress, notes and links. The token is
    stored in this browser's localStorage and sent only to api.github.com. */
 
-import { exportState, hydrate, setRemotePush, state } from './store.js?v=7';
-import { toast } from './util.js?v=7';
+import { exportState, hydrate, setRemotePush, state } from './store.js?v=9';
+import { toast } from './util.js?v=9';
+import {
+  getSessionToken, setSessionToken, clearSessionToken,
+  hasVault, saveVault, openVault, clearVault, purgeLegacyToken, cryptoAvailable,
+} from './vault.js?v=9';
 
 const API = 'https://api.github.com';
 const FILE = 'lld-dashboard-state.json';
 const DESC = 'LLD Mastery dashboard — personal progress state';
-const LS_TOKEN = 'lld.gh.token';
 const LS_GIST = 'lld.gh.gist';     // suffixed with the account login
 
 export const gh = {
   token: null,
   user: null,
   gistId: null,
-  status: 'local',      // local | syncing | synced | error
+  status: 'local',      // local | locked | syncing | synced | error
   message: 'Local only — progress stays in this browser',
   lastSync: 0,
 };
@@ -157,7 +160,7 @@ setRemotePush(push);
 export { push as pushNow };
 
 /* ----------------------------------------------------------- connect */
-export async function connect(token, { gistId = null, prefer = 'auto' } = {}) {
+export async function connect(token, { gistId = null, prefer = 'auto', remember = null } = {}) {
   gh.token = String(token || '').trim();
   if (!gh.token) throw new GhError('bad_token');
 
@@ -181,8 +184,12 @@ export async function connect(token, { gistId = null, prefer = 'auto' } = {}) {
     throw e;
   }
 
-  ls.set(LS_TOKEN, gh.token);
   ls.set(gistKey(), gh.gistId);
+  setSessionToken(gh.token);
+  if (remember) {
+    try { await saveVault(gh.token, remember); }
+    catch (err) { toast(`Not remembered — ${err.message}`, 'err'); }
+  }
 
   const remote = await readGistBody(g);
   const localAt = state.updatedAt || 0;
@@ -215,23 +222,42 @@ export async function pull() {
   }
 }
 
-/** Forget the token. The Gist and its contents stay on GitHub, untouched. */
-export function disconnect() {
+/** Forget the token here. The Gist and its contents stay on GitHub, untouched. */
+export function disconnect({ forgetDevice = true } = {}) {
   ls.del(gistKey());     // drops this account's remembered Gist id
-  ls.del(LS_TOKEN);
+  clearSessionToken();
+  if (forgetDevice) clearVault();
   gh.token = null; gh.user = null; gh.gistId = null;
   setStatus('local', 'Local only — progress stays in this browser');
 }
 
-/** Restore a previous session's token on page load. */
+export const vaultState = () => ({ saved: hasVault(), crypto: cryptoAvailable() });
+
+/** Unlock a passphrase-protected token and connect with it. */
+export async function unlock(passphrase) {
+  const token = await openVault(passphrase);
+  return connect(token, { prefer: 'remote' });
+}
+
+/**
+ * On load: use the tab's own session token if there is one. A token saved
+ * behind a passphrase is NOT auto-opened — it waits for the passphrase.
+ */
 export async function restore() {
-  const token = ls.get(LS_TOKEN);
-  if (!token) return false;
+  if (purgeLegacyToken()) {
+    toast('Removed a clear-text token left by an older version — reconnect to continue syncing', 'err');
+  }
+  const token = getSessionToken();
+  if (!token) {
+    if (hasVault()) setStatus('locked', 'Saved on this device — unlock in Settings to sync');
+    return false;
+  }
   try {
     await connect(token, { prefer: 'remote' });
     return true;
   } catch (e) {
-    setStatus('error', `${errorText(e)} Reconnect in Settings.`);
+    clearSessionToken();
+    setStatus(hasVault() ? 'locked' : 'error', `${errorText(e)} Reconnect in Settings.`);
     return false;
   }
 }

@@ -36,6 +36,13 @@ towards progress, and syncs with everything else. Use **+ New module** on the da
 sidebar, then **+ Add topic** inside any section. Topic bodies are markdown, including `swift` code
 fences and `mermaid` diagrams.
 
+## Exercises and answers
+
+Each `SOLUTIONS.md` block is matched to its exercise by code (`E1`, `SOLO 1`, including combined
+headings like `E1 / E2`) and attached to that exercise, behind a **🔑 Show answer** button — 93 of 93
+exercises have one. Blocks that name no exercise stay in the module's *Solutions & Commentary*
+section, which is spoiler-gated as before.
+
 ## Taking notes
 
 Every item has a notes box that saves as you type. **⤢ Expand** opens the same note full-screen with
@@ -70,9 +77,20 @@ notes, tags and links. The remembered Gist id is stored per account login, and i
 before anything is written, so two accounts used in the same browser never touch each other's data.
 A Gist deleted on github.com is simply recreated on the next connect.
 
-**Security.** The token lives in this browser's `localStorage` and is sent only to `api.github.com`.
-Anyone with access to the browser profile can read it, so scope it to gists only and revoke it from
-GitHub settings if the machine is shared. Without a token everything still works, stored locally.
+### Where the token is kept
+
+No web page can hide a secret from its own JavaScript — while the dashboard is open and unlocked, code
+running in this origin can use the token. That is a property of the platform, not of this app. What is
+avoided is a clear-text token sitting on disk indefinitely:
+
+| Mode | At rest | Survives |
+|---|---|---|
+| Default | `sessionStorage`, this tab only | reloads; gone when the tab closes |
+| *Remember on this device* | AES-GCM ciphertext in `localStorage`, key derived by PBKDF2-SHA256 at 310k iterations from a passphrase that is never stored | until you forget it — needs the passphrase each session |
+
+The token is sent only to `api.github.com`. Scope it to gists only, and revoke it on GitHub if a machine
+is lost. A clear-text token written by an older version of this dashboard is deleted on next load.
+Without a token everything still works, stored locally.
 
 ## Resets
 
