@@ -4,10 +4,10 @@ import {
   content, state, isDone, isFav, notesOf, visibleTags, tagsOf, resourcesOf, globalResources,
   moduleProgress, sectionProgress, overallProgress, phaseProgress, countsByKind,
   recentlyDone, favourites, withNotes, nextUp, loadBodies, bodyOf, answerOf, CUSTOM_PHASE,
-} from './store.js?v=9';
-import { renderMarkdown, enhance, stripMd } from './md.js?v=9';
-import { $, esc, pct, ringSvg, barHtml, timeAgo, fmtDate, safeUrl } from './util.js?v=9';
-import { gh, vaultState } from './gist.js?v=9';
+} from './store.js?v=10';
+import { renderMarkdown, enhance, stripMd } from './md.js?v=10';
+import { $, esc, pct, ringSvg, barHtml, timeAgo, fmtDate, safeUrl } from './util.js?v=10';
+import { gh, vaultState } from './gist.js?v=10';
 
 export const THEMES = [
   ['indigo', 'Indigo', '#6366f1', '#8b5cf6'],
@@ -177,7 +177,7 @@ export function itemCard(item, { showModule = false, open = false } = {}) {
           ${item.custom ? '<span class="tag accent">mine</span>' : ''}
           ${item.difficulty ? `<span class="tag ${item.difficulty}">${item.difficulty}</span>` : ''}
           ${showModule && mod ? `<span class="tag clickable" data-act="goto-module" data-mod="${esc(mod.id)}">M${esc(mod.num)} · ${esc(mod.title)}</span>` : ''}
-          ${!showModule && sec?.spoiler ? '<span class="tag">spoiler</span>' : ''}
+          ${!showModule && (item.spoiler || sec?.spoiler) ? '<span class="tag">spoiler</span>' : ''}
           ${links.map((r) => `<a class="tag link-chip" href="${esc(safeUrl(r.url) || '#')}" target="_blank" rel="noopener noreferrer"
               title="${esc(r.label || r.type)}" data-stop="1">${RES_ICON[r.type] || '🔗'} ${esc(RES_WORD[r.type] || 'Open')}</a>`).join('')}
           ${visibleTags(item.id).slice(0, showModule ? 2 : 5).map(({ t }) =>
@@ -213,7 +213,7 @@ export async function fillItemBody(card) {
   try { await loadBodies(mod.id); } catch { /* fall through to empty */ }
 
   const md = bodyOf(id) || '_No content yet._';
-  const spoiler = !!sec?.spoiler && !state.prefs.revealSolutions;
+  const spoiler = !!(item?.spoiler || sec?.spoiler) && !state.prefs.revealSolutions;
 
   body.innerHTML = `
     ${spoiler ? '<div class="spoiler-shade"><div class="veil"><div><b>Solution / commentary</b><p class="muted">Attempt it first — then reveal.</p><button class="btn sm" data-act="reveal">Reveal</button></div></div>' : ''}

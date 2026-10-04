@@ -26,6 +26,10 @@ Two options:
 
 ## Getting around
 
+A module has up to four sections: **Theory** (the mental models from `CONCEPTS.md` first, then the
+reference from `README.md`), **Problems** where the module is a problem set, **Exercises** (with their
+answers and any leftover commentary) and the **Module Project**.
+
 A module opens on an overview of its sections. Click one and it fills the page, with the other
 sections becoming a sticky vertical rail on the right for switching without going back. Each section
 shows the reading and video links that belong to it — the same links the Resources page files under
@@ -40,8 +44,9 @@ fences and `mermaid` diagrams.
 
 Each `SOLUTIONS.md` block is matched to its exercise by code (`E1`, `SOLO 1`, including combined
 headings like `E1 / E2`) and attached to that exercise, behind a **🔑 Show answer** button — 93 of 93
-exercises have one. Blocks that name no exercise stay in the module's *Solutions & Commentary*
-section, which is spoiler-gated as before.
+exercises have one. There is no separate Solutions section: blocks that name no exercise (self-checks
+and preambles) sit at the end of the Exercises section under *Solutions & commentary*, still veiled
+until you reveal them.
 
 ## Taking notes
 
@@ -62,7 +67,9 @@ node tools/set-version.mjs       # bump the cache-busting ?v= on every asset
 with a cached `store.js`, which fails at load with a missing-export error.
 
 It writes `docs/data/content.json` (index: modules, sections, item titles, tags, seeded links) and
-`docs/data/modules/mNN.json` (the markdown bodies, fetched lazily per module).
+`docs/data/modules/mNN.json` (the markdown bodies and exercise answers, fetched lazily per module).
+Item ids are derived from the source file and heading, so regenerating keeps your ticks and notes
+attached even when sections are rearranged.
 
 ## Sync across browsers (GitHub Gist)
 

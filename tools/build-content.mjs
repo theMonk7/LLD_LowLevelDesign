@@ -122,6 +122,15 @@ const codesIn = (title) =>
 
 const moduleAnswers = new Map();
 
+/** Mental models and the module reference, as one section in reading order. */
+function pushTheory(sections, conceptItems, theoryItems, files) {
+  const items = [...conceptItems, ...theoryItems];
+  if (!items.length) return;
+  const source = [files.concepts ? 'CONCEPTS.md' : null, files.readme ? 'README.md' : null]
+    .filter(Boolean).join(' · ');
+  sections.push({ id: 'theory', title: 'Theory', kind: 'theory', source, items });
+}
+
 let counter = 0;
 function makeItem({ moduleId, sectionId, title, body, kind, group, trackable = true, difficulty = null, tags = [] }) {
   counter += 1;
@@ -162,6 +171,9 @@ function buildModule(dirName) {
     .trim();
 
   const sections = [];
+  // Mental models and the reference read as one body of theory, so they are
+  // collected first and pushed as a single section with two groups.
+  const conceptItems = [];
 
   /* 1 — Mental models (CONCEPTS.md) */
   if (files.concepts) {
@@ -171,18 +183,17 @@ function buildModule(dirName) {
     if (preamble) {
       items.push(makeItem({
         moduleId, sectionId: 'concepts', title: 'Orientation', body: preamble,
-        kind: 'concept', difficulty, tags: ['Mental model'],
+        kind: 'concept', group: 'Mental models', difficulty, tags: ['Mental model'],
       }));
     }
     for (const b of blocks) {
       items.push(makeItem({
         moduleId, sectionId: 'concepts', title: cleanTitle(b.title), body: b.body,
-        kind: 'concept', trackable: !/checkpoint/i.test(b.title), difficulty, tags: ['Mental model'],
+        kind: 'concept', group: 'Mental models', trackable: !/checkpoint/i.test(b.title),
+        difficulty, tags: ['Mental model'],
       }));
     }
-    if (items.length) {
-      sections.push({ id: 'concepts', title: 'Mental Models', kind: 'concept', source: 'CONCEPTS.md', items });
-    }
+    conceptItems.push(...items);
   }
 
   /* 2 — Theory (README.md) + 3 — Problems when the module is a problem set */
@@ -197,7 +208,7 @@ function buildModule(dirName) {
       if (preamble) {
         theory.push(makeItem({
           moduleId, sectionId: 'theory', title: 'How to use this module', body: preamble,
-          kind: 'theory', difficulty,
+          kind: 'theory', group: 'Reference', difficulty,
         }));
       }
       for (const b of blocks) {
@@ -212,28 +223,31 @@ function buildModule(dirName) {
         } else {
           theory.push(makeItem({
             moduleId, sectionId: 'theory', title: cleanTitle(b.title), body: b.body,
-            kind: 'theory', trackable: !/checkpoint/i.test(b.title), difficulty,
+            kind: 'theory', group: 'Reference', trackable: !/checkpoint/i.test(b.title), difficulty,
           }));
         }
       }
-      if (theory.length) sections.push({ id: 'theory', title: 'Theory & Reference', kind: 'theory', source: 'README.md', items: theory });
+      pushTheory(sections, conceptItems, theory, files);
       if (problems.length) sections.push({ id: 'problems', title: 'Problems', kind: 'problem', source: 'README.md', items: problems });
     } else {
       const { preamble, blocks } = sectionize(body, [2]);
       const items = [];
       if (preamble) {
         items.push(makeItem({
-          moduleId, sectionId: 'theory', title: 'Overview', body: preamble, kind: 'theory', difficulty,
+          moduleId, sectionId: 'theory', title: 'Overview', body: preamble,
+          kind: 'theory', group: 'Reference', difficulty,
         }));
       }
       for (const b of blocks) {
         items.push(makeItem({
           moduleId, sectionId: 'theory', title: cleanTitle(b.title), body: b.body,
-          kind: 'theory', trackable: !/checkpoint/i.test(b.title), difficulty,
+          kind: 'theory', group: 'Reference', trackable: !/checkpoint/i.test(b.title), difficulty,
         }));
       }
-      if (items.length) sections.push({ id: 'theory', title: 'Theory & Reference', kind: 'theory', source: 'README.md', items });
+      pushTheory(sections, conceptItems, items, files);
     }
+  } else {
+    pushTheory(sections, conceptItems, [], files);
   }
 
   /* 4 — Exercises (EXERCISES.md) */
@@ -303,15 +317,33 @@ function buildModule(dirName) {
       }
     }
 
-    const items = [];
+    // Whatever names no exercise still belongs with the exercises, as a
+    // spoiler-gated extra rather than a section of its own.
+    const extras = [];
     if (preamble) {
-      items.push(makeItem({ moduleId, sectionId: 'solutions', title: 'Before you read these', body: preamble, kind: 'solution', trackable: false }));
+      extras.push(makeItem({
+        moduleId, sectionId: 'solutions', title: 'Before you read these', body: preamble,
+        kind: 'solution', group: 'Solutions & commentary', trackable: false,
+      }));
     }
     for (const b of leftovers) {
-      items.push(makeItem({ moduleId, sectionId: 'solutions', title: cleanTitle(b.title), body: b.body, kind: 'solution', trackable: false }));
+      extras.push(makeItem({
+        moduleId, sectionId: 'solutions', title: cleanTitle(b.title), body: b.body,
+        kind: 'solution', group: 'Solutions & commentary', trackable: false,
+      }));
     }
-    if (items.length) {
-      sections.push({ id: 'solutions', title: 'Solutions & Commentary', kind: 'solution', source: 'SOLUTIONS.md', spoiler: true, items });
+    for (const x of extras) x.spoiler = true;
+
+    if (extras.length) {
+      let exSection = sections.find((x) => x.id === 'exercises');
+      if (!exSection) {
+        exSection = { id: 'exercises', title: 'Exercises', kind: 'exercise', source: 'EXERCISES.md', items: [] };
+        const projectAt = sections.findIndex((x) => x.id === 'project');
+        if (projectAt === -1) sections.push(exSection);
+        else sections.splice(projectAt, 0, exSection);
+      }
+      exSection.source = `${exSection.source} · SOLUTIONS.md`;
+      exSection.items.push(...extras);
     }
   }
 

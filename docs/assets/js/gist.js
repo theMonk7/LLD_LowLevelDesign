@@ -4,12 +4,12 @@
    and therefore a different set of progress, notes and links. The token is
    stored in this browser's localStorage and sent only to api.github.com. */
 
-import { exportState, hydrate, setRemotePush, state } from './store.js?v=9';
-import { toast } from './util.js?v=9';
+import { exportState, hydrate, setRemotePush, state } from './store.js?v=10';
+import { toast } from './util.js?v=10';
 import {
   getSessionToken, setSessionToken, clearSessionToken,
   hasVault, saveVault, openVault, clearVault, purgeLegacyToken, cryptoAvailable,
-} from './vault.js?v=9';
+} from './vault.js?v=10';
 
 const API = 'https://api.github.com';
 const FILE = 'lld-dashboard-state.json';
