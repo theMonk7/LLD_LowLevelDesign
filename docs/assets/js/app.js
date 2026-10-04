@@ -278,6 +278,22 @@ function doImport() {
 function renderSyncPill() {
   const pill = $('#syncPill');
   pill.dataset.state = G.gh.status;
+  const avatar = G.gh.user?.avatar;
+  let dot = $('.dot', pill);
+  if (avatar && dot.tagName !== 'IMG') {
+    const img = document.createElement('img');
+    img.className = 'dot avatar';
+    img.alt = '';
+    dot.replaceWith(img);
+    dot = img;
+  } else if (!avatar && dot.tagName === 'IMG') {
+    const span = document.createElement('span');
+    span.className = 'dot';
+    dot.replaceWith(span);
+    dot = span;
+  }
+  if (avatar) dot.src = avatar;
+
   $('.sync-text', pill).textContent =
     G.gh.status === 'synced' ? `@${G.gh.user?.login || 'synced'}`
       : G.gh.status === 'syncing' ? 'Syncing…'
@@ -291,7 +307,7 @@ async function connectFlow(token, gistId) {
     await G.connect(token, { gistId: gistId || null });
     render();
   } catch (e) {
-    toast(`Could not connect — ${e.message}`, 'err');
+    toast(G.errorText(e), 'err');
     render();
   }
 }

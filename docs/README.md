@@ -42,7 +42,9 @@ Settings → *Cross-browser sync*. Paste a personal access token:
 
 The dashboard finds a Gist containing `lld-dashboard-state.json`, or creates a private one. **The token
 is the account** — a different token means a different Gist and therefore a separate set of progress,
-notes, tags and links.
+notes, tags and links. The remembered Gist id is stored per account login, and its owner is verified
+before anything is written, so two accounts used in the same browser never touch each other's data.
+A Gist deleted on github.com is simply recreated on the next connect.
 
 **Security.** The token lives in this browser's `localStorage` and is sent only to `api.github.com`.
 Anyone with access to the browser profile can read it, so scope it to gists only and revoke it from
